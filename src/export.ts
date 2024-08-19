@@ -6,7 +6,8 @@ import { join, normalize } from 'path';
 import fixPath from 'fix-path';
 import { getEngine } from './engine';
 
-const imgPathReg = /!\[[^\]]*\]\(([^)]+)\)/g;
+const imgPathReg =  /!\[\[(.+?)\]\]/g;
+
 
 export async function exportSlide(
   file: TFile,
@@ -26,19 +27,24 @@ export async function exportSlide(
 
   let fileContent = await readFile(filePath, 'utf-8');
 
+
   const srcBase64TupleList = await Promise.all(
     [...new Set([...fileContent.matchAll(imgPathReg)].map(v => v[1]))].map(
-      async v => [v, await convertToBase64(v)] as const,
+      async v => {
+        if(v.match(/\|/)){
+          const [name, size] = v.split('|');
+          return [v, await convertToBase64(name), size] as const;
+        }
+        return [v, await convertToBase64(v),undefined] as const
+      }
     ),
   );
 
-  for (const [src, base64] of srcBase64TupleList) {
+  for (const [src, base64, size] of srcBase64TupleList) {
+    new Notice(`Replacing ${src} with base64`, 20000);
     fileContent = fileContent.replace(
-      new RegExp(
-        String.raw`(!\[[^\]]*\])\(${src.replace(/\\/g, '\\\\')}\)`,
-        'g',
-      ),
-      `$1(${base64})`,
+      `![[${src}]]`,
+      `![${size || src}](${base64})`,
     );
   }
 
@@ -67,7 +73,7 @@ export async function exportSlide(
   fixPath();
   new Notice(`Exporting "${file.basename}.${ext}" to "${exportDir}"`, 20000);
   exec(cmd, () => {
-    new Notice('Exported successfully', 20000);
+    new Notice(`Exported successfully`, 20000);
     rm(tmpPath);
     rm(tmpEnginePath);
   });

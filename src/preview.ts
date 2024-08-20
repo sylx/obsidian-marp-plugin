@@ -37,11 +37,18 @@ export class PreviewView extends ItemView implements PreviewViewState {
 
   // Function to replace Wikilinks with the desired format
   replaceImageWikilinks(markdown: string): string {
+    // [[file.png|100x100]]とあった場合は![100x100](url)の形式にする
     const wikilinkRegex = /!\[\[(.+?)\]\]/g;
     const replacedMarkdown = markdown.replace(wikilinkRegex, (_, name) => {
       // Get url for image
-      const url = this.app.vault.adapter.getResourcePath(name);
-      return `![${name}](${url})`;
+      if(name.match(/\|/)){
+        const [name2, size] = name.split('|');
+        const url = this.app.vault.adapter.getResourcePath(name2);
+        return `![${size}](${url}|${size})`;
+      }else{
+        const url = this.app.vault.adapter.getResourcePath(name);
+        return `![${name}](${url})`;
+      }
     });
     return replacedMarkdown;
   }

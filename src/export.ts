@@ -50,7 +50,6 @@ export async function exportSlide(
   }
 
   for (const [src, base64, size] of srcBase64TupleList) {
-    new Notice(`Replacing ${src} with base64`, 20000);
     fileContent = fileContent.replace(
       `![[${src}]]`,
       `![${size || src}](${base64})`,

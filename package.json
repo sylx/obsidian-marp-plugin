@@ -30,6 +30,7 @@
 	"dependencies": {
 		"@marp-team/marp-core": "^3.9.0",
 		"fix-path": "^4.0.0",
+		"mermaid": "^10.9.1",
 		"mime": "^4.0.1"
 	}
 }

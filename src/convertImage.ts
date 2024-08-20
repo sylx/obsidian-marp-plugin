@@ -2,6 +2,7 @@ import { access, readFile } from 'fs/promises';
 import { FileSystemAdapter, requestUrl } from 'obsidian';
 import { join, normalize } from 'path';
 import mimes from 'mime/lite';
+import mermaid from 'mermaid';
 
 const prefix = 'app://local';
 
@@ -108,6 +109,19 @@ export async function convertHtml(html: string): Promise<Document> {
       .replace(/\\/g, '/');
     if (!replaced) continue;
     el.setAttribute('style', replaced);
+  }
+  //mermaid
+  const codes = doc.querySelectorAll('code.language-mermaid');
+  for (let i = 0; i < codes.length; i++) {
+    const el = codes[i];
+    const code = el.textContent;
+    if (!code) continue;
+    const renderResult = await mermaid.mermaidAPI.render('mermaid-svg-' + i, code);
+    const div = document.createElement('div');
+    div.addClass('mermaid-svg');
+    div.innerHTML = renderResult.svg;
+    el.parentElement?.replaceWith(div);
+    //new Notice(`Marp: Mermaid diagram(${i}) rendered ${renderResult.svg?.length}`, 2000);
   }
   return doc;
 }

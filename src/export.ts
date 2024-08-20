@@ -5,6 +5,7 @@ import { convertToBase64 } from './convertImage';
 import { join, normalize } from 'path';
 import fixPath from 'fix-path';
 import { getEngine } from './engine';
+import mermaid from 'mermaid';
 
 const imgPathReg =  /!\[\[(.+?)\]\]/g;
 
@@ -40,11 +41,26 @@ export async function exportSlide(
     ),
   );
 
+  let mermaidSvgId=0;
+  const mermaidSvgTupleList : [string,string][] = [];
+  for(let m of fileContent.matchAll(/```mermaid\n(.+?)\n```/gs)){
+    const code = m[1];
+    const result = await mermaid.mermaidAPI.render('mermaid-svg-' + (mermaidSvgId++) , code);
+    mermaidSvgTupleList.push([code,result.svg]);
+  }
+
   for (const [src, base64, size] of srcBase64TupleList) {
     new Notice(`Replacing ${src} with base64`, 20000);
     fileContent = fileContent.replace(
       `![[${src}]]`,
       `![${size || src}](${base64})`,
+    );
+  }
+
+  for (const [code, svg] of mermaidSvgTupleList) {
+    fileContent = fileContent.replace(
+      '```mermaid\n' + code + '\n```',
+      `<div class="mermaid-svg">${svg}</div>\n`,
     );
   }
 
@@ -59,12 +75,12 @@ export async function exportSlide(
   let cmd: string;
   try {
     await access(themeDir);
-    cmd = `npx -y @marp-team/marp-cli@latest --bespoke.transition --stdin false --allow-local-files --theme-set "${themeDir}" -o "${join(
+    cmd = `npx -y @marp-team/marp-cli@latest --html --bespoke.transition --stdin false --allow-local-files --theme-set "${themeDir}" -o "${join(
       exportDir,
       file.basename,
     )}.${ext}" --engine ${tmpEnginePath} -- "${tmpPath}"`;
   } catch (e) {
-    cmd = `npx -y @marp-team/marp-cli@latest --stdin false --allow-local-files --bespoke.transition -o "${join(
+    cmd = `npx -y @marp-team/marp-cli@latest --html --stdin false --allow-local-files --bespoke.transition -o "${join(
       exportDir,
       file.basename,
     )}.${ext}" --engine ${tmpEnginePath} -- "${tmpPath}"`;

@@ -122,8 +122,19 @@ export class PreviewView extends ItemView implements PreviewViewState {
   }
 
   async onOpen() {
-    this.registerEvent(this.app.vault.on('modify', this.onChange.bind(this)));
+    //this.registerEvent(this.app.vault.on('modify', this.onChange.bind(this)));
+    this.registerEvent(this.app.workspace.on('file-open', this.onFileOpen.bind(this)));
+    this.registerEvent(this.app.workspace.on('editor-change', this.onEditorChange.bind(this)));
     this.addActions();
+  }
+  onFileOpen(file: TFile){
+    this.file = file;
+    this.renderPreview();
+  }
+  onEditorChange(editor: any,{ file } : { file: TFile }){
+    if(this.file === file){
+      this.renderPreview();
+    }
   }
 
   async onClose() {

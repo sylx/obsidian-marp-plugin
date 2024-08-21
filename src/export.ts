@@ -43,10 +43,13 @@ export async function exportSlide(
 
   let mermaidSvgId=0;
   const mermaidSvgTupleList : [string,string][] = [];
-  for(let m of fileContent.matchAll(/```mermaid\n(.+?)\n```/gs)){
-    const code = m[1];
-    const result = await mermaid.mermaidAPI.render('mermaid-svg-' + (mermaidSvgId++) , code);
-    mermaidSvgTupleList.push([code,result.svg]);
+  const matches = fileContent.match(/```mermaid\n(.+?)\n```/gsm);
+  if (matches) {
+    for (let m of matches) {
+      const code = m[1];
+      const result = await mermaid.mermaidAPI.render('mermaid-svg-' + (mermaidSvgId++) , code);
+      mermaidSvgTupleList.push([code,result.svg]);        
+    }
   }
 
   for (const [src, base64, size] of srcBase64TupleList) {

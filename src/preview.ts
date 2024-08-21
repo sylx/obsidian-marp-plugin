@@ -10,12 +10,19 @@ import { exportSlide } from './export';
 import { marp } from './marp';
 import { MarpPluginSettings } from './settings';
 import { join } from 'path';
+import fs from 'fs/promises';
 
 export const MARP_PREVIEW_VIEW_TYPE = 'marp-preview-view';
 
 interface PreviewViewState {
   file: TFile | null;
 }
+type AsyncFunc<T, R> = (arg: T) => Promise<R>;
+
+function pipeAsync<T>(...fns: AsyncFunc<T, T>[]): AsyncFunc<T, T> {
+  return (x: T) => fns.reduce(async (v, f) => f(await v), Promise.resolve(x));
+}
+
 
 export class PreviewView extends ItemView implements PreviewViewState {
   file: TFile | null;
@@ -52,12 +59,38 @@ export class PreviewView extends ItemView implements PreviewViewState {
     });
     return replacedMarkdown;
   }
-  
+
+  async replaceCssWikiLinks(markdown: string): Promise<string> {
+    const wikilinkRegex = /\[\[(.+?\.css)\]\]/g;
+    const css : [string,string][] = []
+    for(let m of markdown.matchAll(wikilinkRegex)){
+      const name = m[1];
+      //nameはmarkdownなので、cssコードブロックを抽出する
+      const basePath = (
+        this.app.vault.adapter as FileSystemAdapter
+      ).getBasePath();
+      const cssMdPath = join(basePath, name);
+      const cssMdContent = await fs.readFile(cssMdPath+'.md', 'utf-8');
+      //cssコードブロックを抽出（すべてのCSSコードブロックを連結する）
+      const cssCode = Array.from(cssMdContent.matchAll(/```css\n(.+?)\n```/gsm)).reduce<string[]>((acc,v)=>[...acc,v[1]],[]);
+      if(cssCode && cssCode.length>0){
+        css.push([name,cssCode.join('\n')]);
+      }
+    };
+    for(const [name,code] of css){
+      markdown = markdown.replace(`[[${name}]]`,`<style>${code}</style>`);
+    }
+    return markdown;
+  }
 
   async renderPreview() {
     if (!this.file) return;
+
     const originContent = await this.app.vault.cachedRead(this.file);
-    const content = this.replaceImageWikilinks(originContent);
+    const content = await pipeAsync<string>(
+      this.replaceImageWikilinks.bind(this),
+      this.replaceCssWikiLinks.bind(this),
+    )(originContent);
     const { html, css } = marp.render(content);
     const doc = await convertHtml(html);
     const container = this.containerEl.children[1];
@@ -89,8 +122,19 @@ export class PreviewView extends ItemView implements PreviewViewState {
   }
 
   async onOpen() {
-    this.registerEvent(this.app.vault.on('modify', this.onChange.bind(this)));
+    //this.registerEvent(this.app.vault.on('modify', this.onChange.bind(this)));
+    this.registerEvent(this.app.workspace.on('file-open', this.onFileOpen.bind(this)));
+    this.registerEvent(this.app.workspace.on('editor-change', this.onEditorChange.bind(this)));
     this.addActions();
+  }
+  onFileOpen(file: TFile){
+    this.file = file;
+    this.renderPreview();
+  }
+  onEditorChange(editor: any,{ file } : { file: TFile }){
+    if(this.file === file){
+      this.renderPreview();
+    }
   }
 
   async onClose() {

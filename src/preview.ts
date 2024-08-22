@@ -23,6 +23,9 @@ function pipeAsync<T>(...fns: AsyncFunc<T, T>[]): AsyncFunc<T, T> {
   return (x: T) => fns.reduce(async (v, f) => f(await v), Promise.resolve(x));
 }
 
+function matchAllJoin(regex: RegExp, text: string): string {
+  return Array.from(text.matchAll(regex)).reduce((acc, v) => [...acc,v[1]], []).join('\n').trim();
+}
 
 export class PreviewView extends ItemView implements PreviewViewState {
   file: TFile | null;
@@ -63,6 +66,7 @@ export class PreviewView extends ItemView implements PreviewViewState {
   async replaceCssWikiLinks(markdown: string): Promise<string> {
     const wikilinkRegex = /\[\[(.+?\.css)\]\]/g;
     const css : [string,string][] = []
+    const mermaid : string[] = []
     for(let m of markdown.matchAll(wikilinkRegex)){
       const name = m[1];
       //nameはmarkdownなので、cssコードブロックを抽出する
@@ -72,13 +76,24 @@ export class PreviewView extends ItemView implements PreviewViewState {
       const cssMdPath = join(basePath, name);
       const cssMdContent = await fs.readFile(cssMdPath+'.md', 'utf-8');
       //cssコードブロックを抽出（すべてのCSSコードブロックを連結する）
-      const cssCode = Array.from(cssMdContent.matchAll(/```css\n(.+?)\n```/gsm)).reduce<string[]>((acc,v)=>[...acc,v[1]],[]);
-      if(cssCode && cssCode.length>0){
-        css.push([name,cssCode.join('\n')]);
+      // Array.from(cssMdContent.matchAll(/```css\n(.+?)\n```/gsm)).reduce<string[]>((acc,v)=>[...acc,v[1]],[]);
+      const cssCode = matchAllJoin(/```css\n(.+?)\n```/gsm,cssMdContent);
+      // Array.from(cssMdContent.matchAll(/```mermaid\n(.+?)\n```/gsm)).reduce<string[]>((acc,v)=>[...acc,v[1]],[]);
+      const mermaidCode = matchAllJoin(/```mermaid\n(.+?)\n```/gsm,cssMdContent);
+      if(cssCode){
+        css.push([name,cssCode]);
+      }
+      //%%{ }%%で囲まれたmermaidコードを抽出
+      if(mermaidCode){
+        mermaid.push(matchAllJoin(/(%%{.+?}%%)/gsm,mermaidCode));
       }
     };
     for(const [name,code] of css){
       markdown = markdown.replace(`[[${name}]]`,`<style>${code}</style>`);
+    }
+    if(mermaid.length > 0){
+      const globalMermaid = mermaid.join('\n');
+      markdown = markdown.replace(/```mermaid/g,"```mermaid\n"+globalMermaid);
     }
     return markdown;
   }

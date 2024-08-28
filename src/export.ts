@@ -9,6 +9,41 @@ import mermaid from 'mermaid';
 
 const imgPathReg =  /!\[\[(.+?)\]\]/g;
 
+function matchAllJoin(regex: RegExp, text: string): string {
+  return Array.from(text.matchAll(regex)).reduce((acc, v) => [...acc,v[1]], []).join('\n').trim();
+}
+
+const replaceCssWikiLinks = async (basePath: string,markdown: string) : Promise<string> =>{
+  const wikilinkRegex = /\[\[(.+?\.css)\]\]/g;
+  const css : [string,string][] = []
+  const mermaid : string[] = []
+  for(let m of markdown.matchAll(wikilinkRegex)){
+    const name = m[1];
+    //nameはmarkdownなので、cssコードブロックを抽出する
+    const cssMdPath = join(basePath, name);
+    const cssMdContent = await readFile(cssMdPath+'.md', 'utf-8');
+    //cssコードブロックを抽出（すべてのCSSコードブロックを連結する）
+    // Array.from(cssMdContent.matchAll(/```css\n(.+?)\n```/gsm)).reduce<string[]>((acc,v)=>[...acc,v[1]],[]);
+    const cssCode = matchAllJoin(/```css\n(.+?)\n```/gsm,cssMdContent);
+    // Array.from(cssMdContent.matchAll(/```mermaid\n(.+?)\n```/gsm)).reduce<string[]>((acc,v)=>[...acc,v[1]],[]);
+    const mermaidCode = matchAllJoin(/```mermaid\n(.+?)\n```/gsm,cssMdContent);
+    if(cssCode){
+      css.push([name,cssCode]);
+    }
+    //%%{ }%%で囲まれたmermaidコードを抽出
+    if(mermaidCode){
+      mermaid.push(matchAllJoin(/(%%{.+?}%%)/gsm,mermaidCode));
+    }
+  };
+  for(const [name,code] of css){
+    markdown = markdown.replace(`[[${name}]]`,`<style>${code}</style>`);
+  }
+  if(mermaid.length > 0){
+    const globalMermaid = mermaid.join('\n');
+    markdown = markdown.replace(/```mermaid/g,"```mermaid\n"+globalMermaid);
+  }
+  return markdown;
+}
 
 export async function exportSlide(
   file: TFile,
@@ -41,14 +76,20 @@ export async function exportSlide(
     ),
   );
 
+  fileContent = await replaceCssWikiLinks(basePath,fileContent);
+
   let mermaidSvgId=0;
   const mermaidSvgTupleList : [string,string][] = [];
-  const matches = fileContent.match(/```mermaid\n(.+?)\n```/gsm);
-  if (matches) {
-    for (let m of matches) {
-      const code = m[1];
+  const matches = fileContent.matchAll(/```mermaid\n(.+?)\n```/gsm);
+  for (let m of matches) {
+    const code = m[1];
+    try {
       const result = await mermaid.mermaidAPI.render('mermaid-svg-' + (mermaidSvgId++) , code);
       mermaidSvgTupleList.push([code,result.svg]);        
+    }catch(e){
+      console.log(m[1]);
+      new Notice(`Mermaid error: ${e.message}`, 20000);
+      continue;
     }
   }
 
@@ -60,6 +101,7 @@ export async function exportSlide(
   }
 
   for (const [code, svg] of mermaidSvgTupleList) {
+    console.log({code,svg});
     fileContent = fileContent.replace(
       '```mermaid\n' + code + '\n```',
       `<div class="mermaid-svg">${svg}</div>\n`,

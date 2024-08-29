@@ -8,7 +8,8 @@ if you want to view the source, please visit the github repository of this plugi
 */
 `;
 
-const prod = process.argv[2] === 'production';
+const mode = process.argv[2] ?? 'watch';
+const prod = mode === 'production';
 
 const context = await esbuild.context({
   banner: {
@@ -43,7 +44,7 @@ const context = await esbuild.context({
   minify: prod,
 });
 
-if (prod) {
+if (mode !== 'watch') {
   await context.rebuild();
   process.exit(0);
 } else {

@@ -125,3 +125,11 @@ export async function convertHtml(html: string): Promise<Document> {
   }
   return doc;
 }
+
+export async function convertMermaidToSvg(code: string): Promise<string> {
+  return (await mermaid.mermaidAPI.render('mermaid-svg', code)).svg;
+}
+export async function convertMermaidToDataUrl(code: string): Promise<string> {
+  const svg = await convertMermaidToSvg(code);
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+}

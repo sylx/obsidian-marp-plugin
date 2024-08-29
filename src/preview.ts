@@ -5,7 +5,7 @@ import {
   ViewStateResult,
   WorkspaceLeaf,
 } from 'obsidian';
-import { convertHtml } from './convertImage';
+import { convertHtml, convertMermaidToDataUrl, convertMermaidToSvg } from './convertImage';
 import { exportSlide } from './export';
 import { marp } from './marp';
 import { MarpPluginSettings } from './settings';
@@ -32,8 +32,10 @@ function matchAllJoin(regex: RegExp, text: string): string {
 export class PreviewView extends ItemView implements PreviewViewState {
   file: TFile | null;
   settings: MarpPluginSettings;
+
   protected bodyEl: HTMLElement;
   protected styleEl: HTMLStyleElement;
+
   constructor(leaf: WorkspaceLeaf, settings: MarpPluginSettings) {
     super(leaf);
     this.file = null;
@@ -104,6 +106,24 @@ export class PreviewView extends ItemView implements PreviewViewState {
     return markdown;
   }
 
+  async replaceMermaidCodeBlock(markdown: string): Promise<string> {
+    const mermaidRegex = /```mermaid\n(.+?)\n```/gsm;
+    const mermaid : [string,string][] = []
+    for(let m of markdown.matchAll(mermaidRegex)){
+      const code = m[1];
+      const dataurl = await convertMermaidToDataUrl(code);
+      mermaid.push([code,dataurl]);
+    }
+    if(mermaid.length > 0){
+      for(const [code,dataurl] of mermaid){
+        markdown = markdown.replace(`\`\`\`mermaid\n${code}\n\`\`\``,
+          `<img src="${dataurl}" alt="mermaid">`
+        );
+      }
+    }
+    return markdown;
+  }
+
   async renderPreview() {
     const originContent = this.app.workspace.activeEditor?.editor?.getValue();
     if(!originContent) return;
@@ -111,9 +131,11 @@ export class PreviewView extends ItemView implements PreviewViewState {
     const content = await pipeAsync<string>(
       this.replaceImageWikilinks.bind(this),
       this.replaceCssWikiLinks.bind(this),
+      this.replaceMermaidCodeBlock.bind(this),
     )(originContent);
 
-    const { html, css } = marp.render(content);
+    console.log(content);
+    const { html, css } = marp.render(content)
     morphdom(this.bodyEl, html);
     if(this.styleEl.innerHTML !== css){
       this.styleEl.innerHTML = css;

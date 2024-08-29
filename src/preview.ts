@@ -12,6 +12,8 @@ import { MarpPluginSettings } from './settings';
 import { join } from 'path';
 import fs from 'fs/promises';
 
+import morphdom from 'morphdom';
+
 export const MARP_PREVIEW_VIEW_TYPE = 'marp-preview-view';
 
 interface PreviewViewState {
@@ -30,10 +32,14 @@ function matchAllJoin(regex: RegExp, text: string): string {
 export class PreviewView extends ItemView implements PreviewViewState {
   file: TFile | null;
   settings: MarpPluginSettings;
+  protected bodyEl: HTMLElement;
+  protected styleEl: HTMLStyleElement;
   constructor(leaf: WorkspaceLeaf, settings: MarpPluginSettings) {
     super(leaf);
     this.file = null;
     this.settings = settings;
+    this.bodyEl = this.contentEl.createDiv();
+    this.styleEl = this.contentEl.createEl('style');
   }
 
   getViewType(): string {
@@ -99,19 +105,19 @@ export class PreviewView extends ItemView implements PreviewViewState {
   }
 
   async renderPreview() {
-    if (!this.file) return;
+    const originContent = this.app.workspace.activeEditor?.editor?.getValue();
+    if(!originContent) return;
 
-    const originContent = await this.app.vault.cachedRead(this.file);
     const content = await pipeAsync<string>(
       this.replaceImageWikilinks.bind(this),
       this.replaceCssWikiLinks.bind(this),
     )(originContent);
+
     const { html, css } = marp.render(content);
-    const doc = await convertHtml(html);
-    const container = this.containerEl.children[1];
-    container.empty();
-    container.appendChild(doc.body.children[0]);
-    container.createEl('style', { text: css });
+    morphdom(this.bodyEl, html);
+    if(this.styleEl.innerHTML !== css){
+      this.styleEl.innerHTML = css;
+    }
   }
 
   addActions() {

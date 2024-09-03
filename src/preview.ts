@@ -1,4 +1,6 @@
 import {
+  Editor,
+  EditorPosition,
   FileSystemAdapter,
   ItemView,
   TFile,
@@ -124,17 +126,22 @@ export class PreviewView extends ItemView implements PreviewViewState {
     return markdown;
   }
 
-  async renderPreview() {
+  async renderPreview({
+    cursor,
+  } : {
+    cursor?: EditorPosition
+  } = {
+  }) {
     const originContent = this.app.workspace.activeEditor?.editor?.getValue();
     if(!originContent) return;
 
+    //様々な変換を行う
     const content = await pipeAsync<string>(
-      this.replaceImageWikilinks.bind(this),
-      this.replaceCssWikiLinks.bind(this),
-      this.replaceMermaidCodeBlock.bind(this),
+      this.replaceImageWikilinks.bind(this), // imageをwikilinkに変換
+      this.replaceCssWikiLinks.bind(this), // styleへのリンクを処理
+      this.replaceMermaidCodeBlock.bind(this), // mermaidコードを画像に変換
     )(originContent);
 
-    console.log(content);
     const { html, css } = marp.render(content)
     morphdom(this.bodyEl, html);
     if(this.styleEl.innerHTML !== css){
@@ -174,9 +181,11 @@ export class PreviewView extends ItemView implements PreviewViewState {
     this.file = file;
     this.renderPreview();
   }
-  onEditorChange(editor: any,{ file } : { file: TFile }){
+  onEditorChange(editor: Editor,{ file } : { file: TFile }){
     if(this.file === file){
-      this.renderPreview();
+      this.renderPreview({
+        cursor: editor.getCursor()
+      });
     }
   }
 
@@ -187,6 +196,9 @@ export class PreviewView extends ItemView implements PreviewViewState {
   onChange() {
     if (!this.settings.autoReload) return;
     this.renderPreview();
+  }
+
+  onCursorChange() {
   }
 
   async setState(state: PreviewViewState, result: ViewStateResult) {

@@ -6,12 +6,15 @@ import { readdir, readFile } from 'fs/promises';
 import { marp } from './marp';
 import { existsSync } from 'fs';
 import { join, normalize } from 'path';
+import { marpEditorExtension } from './MarpEditorExtension';
 
 export default class MarpPlugin extends Plugin {
   settings: MarpPluginSettings;
 
   async onload() {
     await this.loadSettings();
+    this.registerEditorExtension([marpEditorExtension]);
+
     this.addRibbonIcon('presentation', 'Marp: Open Preview', async _ => {
       const file = this.app.workspace.activeEditor?.file;
       if (!file)

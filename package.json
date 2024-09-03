@@ -16,6 +16,7 @@
 	"author": "JichouP",
 	"license": "MIT",
 	"devDependencies": {
+		"@codemirror/language": "^6.10.2",
 		"@types/markdown-it": "^13.0.7",
 		"@types/mime": "^3.0.4",
 		"@types/node": "^20.11.20",

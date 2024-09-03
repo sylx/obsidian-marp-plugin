@@ -5,6 +5,7 @@ import {
   ItemView,
   TFile,
   ViewStateResult,
+  Workspace,
   WorkspaceLeaf,
 } from 'obsidian';
 import { convertHtml, convertMermaidToDataUrl, convertMermaidToSvg } from './convertImage';
@@ -15,6 +16,8 @@ import { join } from 'path';
 import fs from 'fs/promises';
 
 import morphdom from 'morphdom';
+import { editorExtensionInstance } from './MarpEditorExtension';
+import { SelectionRange } from '@codemirror/state';
 
 export const MARP_PREVIEW_VIEW_TYPE = 'marp-preview-view';
 
@@ -29,6 +32,10 @@ function pipeAsync<T>(...fns: AsyncFunc<T, T>[]): AsyncFunc<T, T> {
 
 function matchAllJoin(regex: RegExp, text: string): string {
   return Array.from(text.matchAll(regex)).reduce((acc, v) => [...acc,v[1]], []).join('\n').trim();
+}
+
+export function getPreviewView(workspace: Workspace) : PreviewView | undefined {
+  return workspace.getLeavesOfType(MARP_PREVIEW_VIEW_TYPE)[0]?.view as PreviewView;
 }
 
 export class PreviewView extends ItemView implements PreviewViewState {
@@ -126,12 +133,7 @@ export class PreviewView extends ItemView implements PreviewViewState {
     return markdown;
   }
 
-  async renderPreview({
-    cursor,
-  } : {
-    cursor?: EditorPosition
-  } = {
-  }) {
+  async renderPreview() {
     const originContent = this.app.workspace.activeEditor?.editor?.getValue();
     if(!originContent) return;
 
@@ -176,6 +178,9 @@ export class PreviewView extends ItemView implements PreviewViewState {
     this.registerEvent(this.app.workspace.on('file-open', this.onFileOpen.bind(this)));
     this.registerEvent(this.app.workspace.on('editor-change', this.onEditorChange.bind(this)));
     this.addActions();
+    if(editorExtensionInstance){
+      editorExtensionInstance.setPreviewView(this);
+    }
   }
   onFileOpen(file: TFile){
     this.file = file;
@@ -183,14 +188,12 @@ export class PreviewView extends ItemView implements PreviewViewState {
   }
   onEditorChange(editor: Editor,{ file } : { file: TFile }){
     if(this.file === file){
-      this.renderPreview({
-        cursor: editor.getCursor()
-      });
+      this.renderPreview();
     }
   }
 
   async onClose() {
-    // Nothing to clean up.
+    editorExtensionInstance?.setPreviewView(undefined);
   }
 
   onChange() {
@@ -198,7 +201,12 @@ export class PreviewView extends ItemView implements PreviewViewState {
     this.renderPreview();
   }
 
-  onCursorChange() {
+  onCursorChange(selection: SelectionRange, page: number) {
+    //scroll to the cursor position
+    if(page > -1){
+      const slide = this.bodyEl.querySelectorAll('.marpit > svg')[page];
+      slide?.scrollIntoView({behavior: 'smooth', block: 'center'});
+    }
   }
 
   async setState(state: PreviewViewState, result: ViewStateResult) {

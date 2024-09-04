@@ -1,14 +1,12 @@
 import {
-  Editor,
-  EditorPosition,
-  FileSystemAdapter,
+  Editor, FileSystemAdapter,
   ItemView,
   TFile,
   ViewStateResult,
   Workspace,
-  WorkspaceLeaf,
+  WorkspaceLeaf
 } from 'obsidian';
-import { convertHtml, convertMermaidToDataUrl, convertMermaidToSvg } from './convertImage';
+import { convertMermaidToDataUrl } from './convertImage';
 import { exportSlide } from './export';
 import { marp } from './marp';
 import { MarpPluginSettings } from './settings';
@@ -16,7 +14,7 @@ import { join } from 'path';
 import fs from 'fs/promises';
 
 import morphdom from 'morphdom';
-import { editorExtensionInstance } from './MarpEditorExtension';
+import { editorExtensionInstance } from './EditorExtension';
 import { SelectionRange } from '@codemirror/state';
 
 export const MARP_PREVIEW_VIEW_TYPE = 'marp-preview-view';
@@ -31,10 +29,10 @@ function pipeAsync<T>(...fns: AsyncFunc<T, T>[]): AsyncFunc<T, T> {
 }
 
 function matchAllJoin(regex: RegExp, text: string): string {
-  return Array.from(text.matchAll(regex)).reduce((acc, v) => [...acc,v[1]], []).join('\n').trim();
+  return Array.from(text.matchAll(regex)).reduce((acc, v) => [...acc, v[1]], []).join('\n').trim();
 }
 
-export function getPreviewView(workspace: Workspace) : PreviewView | undefined {
+export function getPreviewView(workspace: Workspace): PreviewView | undefined {
   return workspace.getLeavesOfType(MARP_PREVIEW_VIEW_TYPE)[0]?.view as PreviewView;
 }
 
@@ -68,11 +66,11 @@ export class PreviewView extends ItemView implements PreviewViewState {
     const wikilinkRegex = /!\[\[(.+?)\]\]/g;
     const replacedMarkdown = markdown.replace(wikilinkRegex, (_, name) => {
       // Get url for image
-      if(name.match(/\|/)){
+      if (name.match(/\|/)) {
         const [name2, size] = name.split('|');
         const url = this.app.vault.adapter.getResourcePath(name2);
         return `![${size}](${url}|${size})`;
-      }else{
+      } else {
         const url = this.app.vault.adapter.getResourcePath(name);
         return `![${name}](${url})`;
       }
@@ -82,49 +80,49 @@ export class PreviewView extends ItemView implements PreviewViewState {
 
   async replaceCssWikiLinks(markdown: string): Promise<string> {
     const wikilinkRegex = /\[\[(.+?\.css)\]\]/g;
-    const css : [string,string][] = []
-    const mermaid : string[] = []
-    for(let m of markdown.matchAll(wikilinkRegex)){
+    const css: [string, string][] = []
+    const mermaid: string[] = []
+    for (let m of markdown.matchAll(wikilinkRegex)) {
       const name = m[1];
       //nameはmarkdownなので、cssコードブロックを抽出する
       const basePath = (
         this.app.vault.adapter as FileSystemAdapter
       ).getBasePath();
       const cssMdPath = join(basePath, name);
-      const cssMdContent = await fs.readFile(cssMdPath+'.md', 'utf-8');
+      const cssMdContent = await fs.readFile(cssMdPath + '.md', 'utf-8');
       //cssコードブロックを抽出（すべてのCSSコードブロックを連結する）
       // Array.from(cssMdContent.matchAll(/```css\n(.+?)\n```/gsm)).reduce<string[]>((acc,v)=>[...acc,v[1]],[]);
-      const cssCode = matchAllJoin(/```css\n(.+?)\n```/gsm,cssMdContent);
+      const cssCode = matchAllJoin(/```css\n(.+?)\n```/gsm, cssMdContent);
       // Array.from(cssMdContent.matchAll(/```mermaid\n(.+?)\n```/gsm)).reduce<string[]>((acc,v)=>[...acc,v[1]],[]);
-      const mermaidCode = matchAllJoin(/```mermaid\n(.+?)\n```/gsm,cssMdContent);
-      if(cssCode){
-        css.push([name,cssCode]);
+      const mermaidCode = matchAllJoin(/```mermaid\n(.+?)\n```/gsm, cssMdContent);
+      if (cssCode) {
+        css.push([name, cssCode]);
       }
       //%%{ }%%で囲まれたmermaidコードを抽出
-      if(mermaidCode){
-        mermaid.push(matchAllJoin(/(%%{.+?}%%)/gsm,mermaidCode));
+      if (mermaidCode) {
+        mermaid.push(matchAllJoin(/(%%{.+?}%%)/gsm, mermaidCode));
       }
     };
-    for(const [name,code] of css){
-      markdown = markdown.replace(`[[${name}]]`,`<style>${code}</style>`);
+    for (const [name, code] of css) {
+      markdown = markdown.replace(`[[${name}]]`, `<style>${code}</style>`);
     }
-    if(mermaid.length > 0){
+    if (mermaid.length > 0) {
       const globalMermaid = mermaid.join('\n');
-      markdown = markdown.replace(/```mermaid/g,"```mermaid\n"+globalMermaid);
+      markdown = markdown.replace(/```mermaid/g, "```mermaid\n" + globalMermaid);
     }
     return markdown;
   }
 
   async replaceMermaidCodeBlock(markdown: string): Promise<string> {
     const mermaidRegex = /```mermaid\n(.+?)\n```/gsm;
-    const mermaid : [string,string][] = []
-    for(let m of markdown.matchAll(mermaidRegex)){
+    const mermaid: [string, string][] = []
+    for (let m of markdown.matchAll(mermaidRegex)) {
       const code = m[1];
       const dataurl = await convertMermaidToDataUrl(code);
-      mermaid.push([code,dataurl]);
+      mermaid.push([code, dataurl]);
     }
-    if(mermaid.length > 0){
-      for(const [code,dataurl] of mermaid){
+    if (mermaid.length > 0) {
+      for (const [code, dataurl] of mermaid) {
         markdown = markdown.replace(`\`\`\`mermaid\n${code}\n\`\`\``,
           `<img src="${dataurl}" alt="mermaid">`
         );
@@ -133,9 +131,9 @@ export class PreviewView extends ItemView implements PreviewViewState {
     return markdown;
   }
 
-  async renderPreview() {
-    const originContent = this.app.workspace.activeEditor?.editor?.getValue();
-    if(!originContent) return;
+  async renderPreview(partialContent?: string,partialPage?: number) {
+    const originContent = partialContent ?? this.app.workspace.activeEditor?.editor?.getValue();
+    if (!originContent) return;
 
     //様々な変換を行う
     const content = await pipeAsync<string>(
@@ -145,8 +143,12 @@ export class PreviewView extends ItemView implements PreviewViewState {
     )(originContent);
 
     const { html, css } = marp.render(content)
-    morphdom(this.bodyEl, html);
-    if(this.styleEl.innerHTML !== css){
+    if(partialPage === undefined){
+      morphdom(this.bodyEl, html);
+    }else if(this.bodyEl.children[partialPage]){
+      morphdom(this.bodyEl.children[partialPage], html);
+    }
+    if (this.styleEl.innerHTML !== css) {
       this.styleEl.innerHTML = css;
     }
   }
@@ -178,16 +180,17 @@ export class PreviewView extends ItemView implements PreviewViewState {
     this.registerEvent(this.app.workspace.on('file-open', this.onFileOpen.bind(this)));
     this.registerEvent(this.app.workspace.on('editor-change', this.onEditorChange.bind(this)));
     this.addActions();
-    if(editorExtensionInstance){
+    if (editorExtensionInstance) {
       editorExtensionInstance.setPreviewView(this);
     }
+    this.renderPreview();
   }
-  onFileOpen(file: TFile){
+  onFileOpen(file: TFile) {
     this.file = file;
     this.renderPreview();
   }
-  onEditorChange(editor: Editor,{ file } : { file: TFile }){
-    if(this.file === file){
+  onEditorChange(editor: Editor, { file }: { file: TFile }) {
+    if (this.file === file) {
       this.renderPreview();
     }
   }
@@ -196,16 +199,18 @@ export class PreviewView extends ItemView implements PreviewViewState {
     editorExtensionInstance?.setPreviewView(undefined);
   }
 
-  onChange() {
-    if (!this.settings.autoReload) return;
-    this.renderPreview();
-  }
-
   onCursorChange(selection: SelectionRange, page: number) {
     //scroll to the cursor position
-    if(page > -1){
-      const slide = this.bodyEl.querySelectorAll('.marpit > svg')[page];
-      slide?.scrollIntoView({behavior: 'smooth', block: 'center'});
+    if (page > -1) {
+      const allSlides = this.bodyEl.querySelectorAll('.marpit > svg');
+      allSlides.forEach((slide, index) => {
+        if (index === page) {
+          slide.classList.add('cursor');
+          slide.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          slide.classList.remove('cursor');
+        }
+      });
     }
   }
 

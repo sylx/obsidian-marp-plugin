@@ -6,7 +6,7 @@ import { readdir, readFile } from 'fs/promises';
 import { marp } from './marp';
 import { existsSync } from 'fs';
 import { join, normalize } from 'path';
-import { marpEditorExtension } from './MarpEditorExtension';
+import { marpEditorExtension } from './EditorExtension';
 
 export default class MarpPlugin extends Plugin {
   settings: MarpPluginSettings;

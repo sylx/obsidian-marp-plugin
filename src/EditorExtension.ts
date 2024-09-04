@@ -11,9 +11,9 @@ import { PreviewView } from "./preview";
 import { EditorState } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 
-export let editorExtensionInstance: MarpEditorExtension | undefined;
+export let editorExtensionInstance: EditorExtensionPluginValue | undefined;
 
-export class MarpEditorExtension implements PluginValue {
+export class EditorExtensionPluginValue implements PluginValue {
   decorations: DecorationSet | undefined;
   previewView: PreviewView | undefined;
   offsetMap: [number, number][] = [];
@@ -68,9 +68,9 @@ export class MarpEditorExtension implements PluginValue {
   }
 }
 
-const pluginSpec: PluginSpec<MarpEditorExtension> = {
-  decorations: (value: MarpEditorExtension) => value.decorations ?? Decoration.none,
+const pluginSpec: PluginSpec<EditorExtensionPluginValue> = {
+  decorations: (value: EditorExtensionPluginValue) => value.decorations ?? Decoration.none,
 };
 
 
-export const marpEditorExtension = ViewPlugin.fromClass(MarpEditorExtension, pluginSpec);
+export const marpEditorExtension = ViewPlugin.fromClass(EditorExtensionPluginValue, pluginSpec);

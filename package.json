@@ -18,16 +18,16 @@
 	"devDependencies": {
 		"@codemirror/language": "^6.10.2",
 		"@types/markdown-it": "^13.0.7",
-		"@types/mime": "^3.0.4",
+		"@types/mime": "^4.0.0",
 		"@types/node": "^20.11.20",
 		"@typescript-eslint/eslint-plugin": "7.1.0",
-		"@typescript-eslint/parser": "7.1.0",
+		"@typescript-eslint/parser": "7.11.0",
 		"builtin-modules": "3.3.0",
 		"esbuild": "0.20.1",
 		"obsidian": "latest",
 		"prettier": "^3.2.5",
 		"tslib": "2.6.2",
-		"typescript": "5.3.3"
+		"typescript": "5.4.5"
 	},
 	"dependencies": {
 		"@marp-team/marp-core": "^3.9.0",

@@ -14,7 +14,7 @@ import { join } from 'path';
 import fs from 'fs/promises';
 
 import morphdom from 'morphdom';
-import { editorExtensionInstance } from './EditorExtension';
+import { editorExtensionInstance,PageInfo } from './EditorExtension';
 import { SelectionRange } from '@codemirror/state';
 
 export const MARP_PREVIEW_VIEW_TYPE = 'marp-preview-view';
@@ -42,6 +42,7 @@ export class PreviewView extends ItemView implements PreviewViewState {
 
   protected bodyEl: HTMLElement;
   protected styleEl: HTMLStyleElement;
+  protected markdownCache: string[] = [];
 
   constructor(leaf: WorkspaceLeaf, settings: MarpPluginSettings) {
     super(leaf);
@@ -131,23 +132,20 @@ export class PreviewView extends ItemView implements PreviewViewState {
     return markdown;
   }
 
-  async renderPreview(partialContent?: string,partialPage?: number) {
-    const originContent = partialContent ?? this.app.workspace.activeEditor?.editor?.getValue();
-    if (!originContent) return;
-
-    //様々な変換を行う
-    const content = await pipeAsync<string>(
-      this.replaceImageWikilinks.bind(this), // imageをwikilinkに変換
-      this.replaceCssWikiLinks.bind(this), // styleへのリンクを処理
-      this.replaceMermaidCodeBlock.bind(this), // mermaidコードを画像に変換
-    )(originContent);
-
-    const { html, css } = marp.render(content)
-    if(partialPage === undefined){
-      morphdom(this.bodyEl, html);
-    }else if(this.bodyEl.children[partialPage]){
-      morphdom(this.bodyEl.children[partialPage], html);
+  async renderPreview(pageInfo: PageInfo[],notPartial: boolean = false) {
+    if(notPartial){
+      this.markdownCache = [];
     }
+    for(const info of pageInfo){
+      //様々な変換を行う
+      this.markdownCache[info.page] = await pipeAsync<string>(
+        this.replaceImageWikilinks.bind(this), // imageをwikilinkに変換
+        this.replaceCssWikiLinks.bind(this), // styleへのリンクを処理
+        this.replaceMermaidCodeBlock.bind(this), // mermaidコードを画像に変換
+      )(info.content);
+    }
+    const { html, css } = marp.render(this.markdownCache.join('\n---\n'));
+    morphdom(this.bodyEl, html);
     if (this.styleEl.innerHTML !== css) {
       this.styleEl.innerHTML = css;
     }
@@ -177,28 +175,17 @@ export class PreviewView extends ItemView implements PreviewViewState {
 
   async onOpen() {
     //this.registerEvent(this.app.vault.on('modify', this.onChange.bind(this)));
-    this.registerEvent(this.app.workspace.on('file-open', this.onFileOpen.bind(this)));
-    this.registerEvent(this.app.workspace.on('editor-change', this.onEditorChange.bind(this)));
+    //this.registerEvent(this.app.workspace.on('file-open', this.onFileOpen.bind(this)));
+    //this.registerEvent(this.app.workspace.on('editor-change', this.onEditorChange.bind(this)));
     this.addActions();
     if (editorExtensionInstance) {
+      console.log("set!")
       editorExtensionInstance.setPreviewView(this);
     }
-    this.renderPreview();
   }
-  onFileOpen(file: TFile) {
-    this.file = file;
-    this.renderPreview();
-  }
-  onEditorChange(editor: Editor, { file }: { file: TFile }) {
-    if (this.file === file) {
-      this.renderPreview();
-    }
-  }
-
   async onClose() {
     editorExtensionInstance?.setPreviewView(undefined);
   }
-
   onCursorChange(selection: SelectionRange, page: number) {
     //scroll to the cursor position
     if (page > -1) {
@@ -218,7 +205,6 @@ export class PreviewView extends ItemView implements PreviewViewState {
     if (state.file) {
       this.file = state.file;
     }
-    await this.renderPreview();
     return super.setState(state, result);
   }
 

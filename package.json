@@ -24,6 +24,7 @@
 		"@typescript-eslint/parser": "7.11.0",
 		"builtin-modules": "3.3.0",
 		"esbuild": "0.20.1",
+		"esbuild-sass-plugin": "^3.3.1",
 		"obsidian": "latest",
 		"prettier": "^3.2.5",
 		"tslib": "2.6.2",
@@ -33,7 +34,7 @@
 		"@marp-team/marp-core": "^3.9.0",
 		"fix-path": "^4.0.0",
 		"mermaid": "^10.9.1",
-		"mime": "^4.0.1",
+		"mime": "^4.0.4",
 		"morphdom": "^2.7.4"
 	}
 }

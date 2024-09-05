@@ -1,7 +1,7 @@
 import { access, readFile } from 'fs/promises';
 import { FileSystemAdapter, Notice, requestUrl } from 'obsidian';
 import { join, normalize } from 'path';
-import mimes from 'mime/lite';
+import mimes from 'mime';
 import mermaid from 'mermaid';
 
 const prefix = 'app://local';

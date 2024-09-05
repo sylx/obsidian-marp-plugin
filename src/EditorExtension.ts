@@ -1,12 +1,12 @@
 import {
-    ViewUpdate,
-    PluginSpec,
-    PluginValue,
-    EditorView,
-    ViewPlugin,
-    Decoration,
-    DecorationSet
-  } from "@codemirror/view";
+  ViewUpdate,
+  PluginSpec,
+  PluginValue,
+  EditorView,
+  ViewPlugin,
+  Decoration,
+  DecorationSet
+} from "@codemirror/view";
 import { PreviewView } from "./preview";
 import { EditorState } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
@@ -22,23 +22,34 @@ export type PageInfo = {
 
 export class EditorExtensionPluginValue implements PluginValue {
   decorations: DecorationSet | undefined;
-  previewView: PreviewView | undefined;
+  static previewView: PreviewView | undefined;
   pageInfo: PageInfo[] = [];
   
   constructor(view: EditorView) {
-    // ...
-    console.log('MarpViewPlugin instantiated');
+    // ファイルを開いた時、別のファイルに移った時再生成される
+    console.log('MEditorExtensionPlugin instantiated');
     editorExtensionInstance = this;
     this.pageInfo=this.createPageInfo(view.state);
+    if(EditorExtensionPluginValue.previewView){
+      this.renderPreview(this.pageInfo,true);
+    }
+  }
+
+  //shortcut
+  renderPreview(pageInfo: PageInfo[],notPagrtial?:boolean){
+    EditorExtensionPluginValue.previewView?.renderPreview(pageInfo,notPagrtial);
   }
 
   setPreviewView(previewView: PreviewView | undefined) {
     let isChanged = false;
-    if(previewView && this.previewView !== previewView) isChanged = true;
-    this.previewView = previewView;
+    if(previewView && EditorExtensionPluginValue.previewView !== previewView) isChanged = true;
+    EditorExtensionPluginValue.previewView = previewView;
     if(isChanged){
-      this.previewView?.renderPreview(this.pageInfo,true);
+      this.renderPreview(this.pageInfo,true);
     }
+  }
+  unsetPreviewView() {
+    EditorExtensionPluginValue.previewView = undefined;
   }
 
   update(update: ViewUpdate) {    
@@ -48,18 +59,18 @@ export class EditorExtensionPluginValue implements PluginValue {
       console.log('update',pagesOrFalse);
       if(pagesOrFalse === false){
         //検出不可なので、全部更新
-        this.previewView?.renderPreview(newPageInfo,true);
+        this.renderPreview(newPageInfo,true);
       }else if(pagesOrFalse.length > 0){
-        this.previewView?.renderPreview(pagesOrFalse);
+        this.renderPreview(pagesOrFalse);
       }
       this.pageInfo = newPageInfo;
-    }else if(this.previewView && !update.focusChanged && !update.viewportChanged){
-      // ページを割り出す
+    }else if(EditorExtensionPluginValue.previewView && !update.focusChanged && !update.viewportChanged){
+      // カーソル移動
       const selection = update.state.selection.main;
       const offset = selection.head;
       this.pageInfo.forEach((info,index)=>{
         if(info.start <= offset && offset <= info.end){
-          this.previewView?.onCursorChange(selection,info.page);
+          EditorExtensionPluginValue.previewView!.onCursorChange(selection,info.page);
         }
       })
     }
@@ -110,7 +121,7 @@ export class EditorExtensionPluginValue implements PluginValue {
 
   destroy() {
     // ...
-    console.log('MarpViewPlugin destroyed');
+    console.log('EditorExtensionPlugin destroyed');
     editorExtensionInstance = undefined;
   }
 }

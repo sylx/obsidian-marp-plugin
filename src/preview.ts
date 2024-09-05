@@ -184,7 +184,7 @@ export class PreviewView extends ItemView implements PreviewViewState {
     }
   }
   async onClose() {
-    editorExtensionInstance?.setPreviewView(undefined);
+    editorExtensionInstance?.unsetPreviewView();
   }
   onCursorChange(selection: SelectionRange, page: number) {
     //scroll to the cursor position

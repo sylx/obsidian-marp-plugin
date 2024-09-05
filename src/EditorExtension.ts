@@ -7,11 +7,10 @@ import {
   Decoration,
   DecorationSet
 } from "@codemirror/view";
-import { PreviewView } from "./preview";
+import { getPreviewView } from "./preview";
 import { EditorState } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
-
-export let editorExtensionInstance: EditorExtensionPluginValue | undefined;
+import { App } from "obsidian";
 
 export type PageInfo = {
   page: number; // 0 origin
@@ -22,34 +21,23 @@ export type PageInfo = {
 
 export class EditorExtensionPluginValue implements PluginValue {
   decorations: DecorationSet | undefined;
-  static previewView: PreviewView | undefined;
-  pageInfo: PageInfo[] = [];
+  app: App;
+  pageInfo: PageInfo[] = [];  
   
-  constructor(view: EditorView) {
+  constructor(view: EditorView,app: App) {
     // ファイルを開いた時、別のファイルに移った時再生成される
-    console.log('MEditorExtensionPlugin instantiated');
-    editorExtensionInstance = this;
+    console.log('MEditorExtensionPlugin instantiated',{view,app});
+    this.app = app;
     this.pageInfo=this.createPageInfo(view.state);
-    if(EditorExtensionPluginValue.previewView){
-      this.renderPreview(this.pageInfo,true);
-    }
+    this.renderPreview(this.pageInfo,true);
   }
 
-  //shortcut
+  // previewViewに対する通知
   renderPreview(pageInfo: PageInfo[],notPagrtial?:boolean){
-    EditorExtensionPluginValue.previewView?.renderPreview(pageInfo,notPagrtial);
+    getPreviewView(this.app.workspace)?.renderPreview(pageInfo,notPagrtial);
   }
-
-  setPreviewView(previewView: PreviewView | undefined) {
-    let isChanged = false;
-    if(previewView && EditorExtensionPluginValue.previewView !== previewView) isChanged = true;
-    EditorExtensionPluginValue.previewView = previewView;
-    if(isChanged){
-      this.renderPreview(this.pageInfo,true);
-    }
-  }
-  unsetPreviewView() {
-    EditorExtensionPluginValue.previewView = undefined;
+  moveCursorToPage(page: number){
+    getPreviewView(this.app.workspace)?.moveCursorToPage(page);
   }
 
   update(update: ViewUpdate) {    
@@ -64,13 +52,13 @@ export class EditorExtensionPluginValue implements PluginValue {
         this.renderPreview(pagesOrFalse);
       }
       this.pageInfo = newPageInfo;
-    }else if(EditorExtensionPluginValue.previewView && !update.focusChanged && !update.viewportChanged){
+    }else if(!update.focusChanged && !update.viewportChanged){
       // カーソル移動
       const selection = update.state.selection.main;
       const offset = selection.head;
       this.pageInfo.forEach((info,index)=>{
         if(info.start <= offset && offset <= info.end){
-          EditorExtensionPluginValue.previewView!.onCursorChange(selection,info.page);
+          this.moveCursorToPage(info.page);
         }
       })
     }
@@ -122,13 +110,10 @@ export class EditorExtensionPluginValue implements PluginValue {
   destroy() {
     // ...
     console.log('EditorExtensionPlugin destroyed');
-    editorExtensionInstance = undefined;
   }
 }
 
-const pluginSpec: PluginSpec<EditorExtensionPluginValue> = {
+export const pluginSpec: PluginSpec<EditorExtensionPluginValue> = {
   decorations: (value: EditorExtensionPluginValue) => value.decorations ?? Decoration.none,
 };
 
-
-export const marpEditorExtension = ViewPlugin.fromClass(EditorExtensionPluginValue, pluginSpec);

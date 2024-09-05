@@ -6,16 +6,23 @@ import { readdir, readFile } from 'fs/promises';
 import { marp } from './marp';
 import { existsSync } from 'fs';
 import { join, normalize } from 'path';
-import { marpEditorExtension } from './EditorExtension';
+import { EditorExtensionPluginValue, pluginSpec } from './EditorExtension';
+import { ViewPlugin } from '@codemirror/view';
 
 export default class MarpPlugin extends Plugin {
   settings: MarpPluginSettings;
 
   async onload() {
     await this.loadSettings();
-    this.registerEditorExtension([marpEditorExtension]);
+
+    const editorExtension = ViewPlugin.define<EditorExtensionPluginValue>(view=>{
+      return new EditorExtensionPluginValue(view,this.app);
+    },pluginSpec);
+
+    this.registerEditorExtension([editorExtension]);
 
     this.addRibbonIcon('presentation', 'Marp: Open Preview', async _ => {
+      console.log("ribon",this.app.workspace.activeEditor)
       const file = this.app.workspace.activeEditor?.file;
       if (!file)
         return new Notice(
@@ -30,6 +37,7 @@ export default class MarpPlugin extends Plugin {
       id: 'open-preview',
       name: 'Open Preview',
       async editorCallback(_editor, ctx) {
+        console.log('editor!',_editor,ctx);
         const file = ctx.file;
         if (!file) return;
         await that.activateView(file);

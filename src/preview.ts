@@ -1,5 +1,5 @@
 import {
-  Editor, FileSystemAdapter,
+  FileSystemAdapter,
   ItemView,
   TFile,
   ViewStateResult,
@@ -14,8 +14,7 @@ import { join } from 'path';
 import fs from 'fs/promises';
 
 import morphdom from 'morphdom';
-import { editorExtensionInstance,PageInfo } from './EditorExtension';
-import { SelectionRange } from '@codemirror/state';
+import { PageInfo } from './EditorExtension';
 
 export const MARP_PREVIEW_VIEW_TYPE = 'marp-preview-view';
 
@@ -50,6 +49,7 @@ export class PreviewView extends ItemView implements PreviewViewState {
     this.settings = settings;
     this.bodyEl = this.contentEl.createDiv();
     this.styleEl = this.contentEl.createEl('style');
+    console.log("PreviewView instantiated");
   }
 
   getViewType(): string {
@@ -177,16 +177,12 @@ export class PreviewView extends ItemView implements PreviewViewState {
     //this.registerEvent(this.app.vault.on('modify', this.onChange.bind(this)));
     //this.registerEvent(this.app.workspace.on('file-open', this.onFileOpen.bind(this)));
     //this.registerEvent(this.app.workspace.on('editor-change', this.onEditorChange.bind(this)));
+    console.log("onOpen");
     this.addActions();
-    if (editorExtensionInstance) {
-      console.log("set!")
-      editorExtensionInstance.setPreviewView(this);
-    }
   }
   async onClose() {
-    editorExtensionInstance?.unsetPreviewView();
   }
-  onCursorChange(selection: SelectionRange, page: number) {
+  moveCursorToPage(page: number) {
     //scroll to the cursor position
     if (page > -1) {
       const allSlides = this.bodyEl.querySelectorAll('.marpit > svg');

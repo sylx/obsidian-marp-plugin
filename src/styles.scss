@@ -1,0 +1,22 @@
+@mixin gradientDottedBorder($color, $width, $height) {
+    $minusWidth: $width * -1;
+    background:
+        linear-gradient(90deg, $color 50%, transparent 0) repeat-x,
+        linear-gradient(90deg, $color 50%, transparent 0) repeat-x,
+        linear-gradient(0deg, $color 50%, transparent 0) repeat-y,
+        linear-gradient(0deg, $color 50%, transparent 0) repeat-y;
+    background-size: $width $height, $width $height, $height $width, $height $width;
+    background-position: 0 0, 0 100%, 0 0, 100% 0;
+    animation: gradientDottedBorderMove .3s infinite linear;
+    padding: $height;
+
+    @keyframes gradientDottedBorderMove {
+        100% {
+            background-position: $width 0, $minusWidth 100%, 0 $minusWidth, 100% $width;
+        }
+    }
+}
+
+.marpit>.cursor {
+    @include gradientDottedBorder(var(--caret-color), 10px, 2px);
+}

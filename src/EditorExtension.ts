@@ -7,40 +7,41 @@ import {
   Decoration,
   DecorationSet
 } from "@codemirror/view";
-import { getPreviewView } from "./preview";
+import { getPreviewView, getPreviewViewByFile } from "./preview";
 import { EditorState } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
-import { App } from "obsidian";
-
-export type PageInfo = {
-  page: number; // 0 origin
-  start: number;
-  end: number;
-  content: string;
-}
+import { App, TFile } from "obsidian";
+import { mergeMarpPageInfo, setCurrentPage, setMarpPageInfo,MarpSlidePageInfo } from "./store";
 
 export class EditorExtensionPluginValue implements PluginValue {
   decorations: DecorationSet | undefined;
+  file: TFile | null = null;
   app: App;
-  pageInfo: PageInfo[] = [];  
+  pageInfo: MarpSlidePageInfo[] = [];
   
   constructor(view: EditorView,app: App) {
     // ファイルを開いた時、別のファイルに移った時再生成される
     console.log('MEditorExtensionPlugin instantiated',{view,app});
     this.app = app;
     this.pageInfo=this.createPageInfo(view.state);
+    this.file = this.app.workspace.getActiveFile();
+    
+    //previewがあれば更新
     this.renderPreview(this.pageInfo,true);
   }
 
   // previewViewに対する通知
-  renderPreview(pageInfo: PageInfo[],notPagrtial?:boolean){
-    getPreviewView(this.app.workspace)?.renderPreview(pageInfo,notPagrtial);
+  renderPreview(pageInfo: MarpSlidePageInfo[],notPagrtial?:boolean){
+    if(!this.file) return;
+    notPagrtial ? setMarpPageInfo(this.file,pageInfo) : mergeMarpPageInfo(this.file,pageInfo);
   }
   moveCursorToPage(page: number){
-    getPreviewView(this.app.workspace)?.moveCursorToPage(page);
+    if(!this.file) return;
+    setCurrentPage(this.file,page);
   }
 
-  update(update: ViewUpdate) {    
+  update(update: ViewUpdate) {
+    this.file = this.app.workspace.getActiveFile();
     if(update.docChanged){
       const newPageInfo = this.createPageInfo(update.state);
       const pagesOrFalse = this.detectUpdatePages(newPageInfo);
@@ -67,7 +68,7 @@ export class EditorExtensionPluginValue implements PluginValue {
   createPageInfo(state: EditorState){
     // markdownの---を探す
     let last_offset : number = 0;
-    const newPageInfo: PageInfo[] = [];
+    const newPageInfo: MarpSlidePageInfo[] = [];
     syntaxTree(state).iterate({
       enter: node=>{
         if(node.type.name === 'hr'){
@@ -75,7 +76,8 @@ export class EditorExtensionPluginValue implements PluginValue {
             page: newPageInfo.length,
             start: last_offset,
             end: node.from,
-            content: state.sliceDoc(last_offset,node.from)
+            content: state.sliceDoc(last_offset,node.from),
+            isUpdate: true
           })
           last_offset = node.to;
         }
@@ -86,12 +88,13 @@ export class EditorExtensionPluginValue implements PluginValue {
         page: newPageInfo.length,
         start: last_offset,
         end: state.doc.length,
-        content: state.sliceDoc(last_offset,state.doc.length)
+        content: state.sliceDoc(last_offset,state.doc.length),
+        isUpdate: true
       })
     }
     return newPageInfo;
   }
-  detectUpdatePages(pageInfo: PageInfo[]){
+  detectUpdatePages(pageInfo: MarpSlidePageInfo[]){
     const oldPageInfo = this.pageInfo;
     // 基本的にcontentの比較で差異があったもののみを返す。ページの増減、増加があった場合は、全てのページを返す
     if(oldPageInfo.length !== pageInfo.length){

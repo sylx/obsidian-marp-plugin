@@ -18,7 +18,6 @@ export default class MarpPlugin extends Plugin {
     const editorExtension = ViewPlugin.define<EditorExtensionPluginValue>(view=>{
       return new EditorExtensionPluginValue(view,this.app);
     },pluginSpec);
-
     this.registerEditorExtension([editorExtension]);
 
     this.addRibbonIcon('presentation', 'Marp: Open Preview', async _ => {

@@ -14,7 +14,8 @@ import { join } from 'path';
 import fs from 'fs/promises';
 
 import morphdom from 'morphdom';
-import { PageInfo } from './EditorExtension';
+import { createOrGetCurrentPageStore, createOrGetMarpSlideInfoStore, MarpSlidePageInfo } from './store';
+
 
 export const MARP_PREVIEW_VIEW_TYPE = 'marp-preview-view';
 
@@ -35,6 +36,10 @@ export function getPreviewView(workspace: Workspace): PreviewView | undefined {
   return workspace.getLeavesOfType(MARP_PREVIEW_VIEW_TYPE)[0]?.view as PreviewView;
 }
 
+export function getPreviewViewByFile(workspace: Workspace, file: TFile): PreviewView[]{
+  return workspace.getLeavesOfType(MARP_PREVIEW_VIEW_TYPE).filter(leaf => leaf.view instanceof PreviewView && leaf.view.file === file)?.map(leaf => leaf.view as PreviewView) ?? [];
+}
+
 export class PreviewView extends ItemView implements PreviewViewState {
   file: TFile | null;
   settings: MarpPluginSettings;
@@ -42,6 +47,7 @@ export class PreviewView extends ItemView implements PreviewViewState {
   protected bodyEl: HTMLElement;
   protected styleEl: HTMLStyleElement;
   protected markdownCache: string[] = [];
+  protected unsubscribe: any[] = [];
 
   constructor(leaf: WorkspaceLeaf, settings: MarpPluginSettings) {
     super(leaf);
@@ -49,7 +55,6 @@ export class PreviewView extends ItemView implements PreviewViewState {
     this.settings = settings;
     this.bodyEl = this.contentEl.createDiv();
     this.styleEl = this.contentEl.createEl('style');
-    console.log("PreviewView instantiated");
   }
 
   getViewType(): string {
@@ -57,9 +62,8 @@ export class PreviewView extends ItemView implements PreviewViewState {
   }
 
   getDisplayText(): string {
-    return 'Marp Preview';
+    return `Marp Preview ${this.file?.path ?? ''}`;
   }
-
 
   // Function to replace Wikilinks with the desired format
   replaceImageWikilinks(markdown: string): string {
@@ -132,17 +136,19 @@ export class PreviewView extends ItemView implements PreviewViewState {
     return markdown;
   }
 
-  async renderPreview(pageInfo: PageInfo[],notPartial: boolean = false) {
-    if(notPartial){
-      this.markdownCache = [];
+  async renderPreview(pageInfo: readonly MarpSlidePageInfo[]) {
+    if(this.markdownCache.length !== pageInfo.length){
+      this.markdownCache = new Array(pageInfo.length);
     }
     for(const info of pageInfo){
-      //様々な変換を行う
-      this.markdownCache[info.page] = await pipeAsync<string>(
-        this.replaceImageWikilinks.bind(this), // imageをwikilinkに変換
-        this.replaceCssWikiLinks.bind(this), // styleへのリンクを処理
-        this.replaceMermaidCodeBlock.bind(this), // mermaidコードを画像に変換
-      )(info.content);
+      if(info.isUpdate){
+        //様々な変換を行う
+        this.markdownCache[info.page] = await pipeAsync<string>(
+          this.replaceImageWikilinks.bind(this), // imageをwikilinkに変換
+          this.replaceCssWikiLinks.bind(this), // styleへのリンクを処理
+          this.replaceMermaidCodeBlock.bind(this), // mermaidコードを画像に変換
+        )(info.content);
+      }
     }
     const { html, css } = marp.render(this.markdownCache.join('\n---\n'));
     morphdom(this.bodyEl, html);
@@ -175,13 +181,22 @@ export class PreviewView extends ItemView implements PreviewViewState {
 
   async onOpen() {
     //this.registerEvent(this.app.vault.on('modify', this.onChange.bind(this)));
-    //this.registerEvent(this.app.workspace.on('file-open', this.onFileOpen.bind(this)));
+    this.registerEvent(this.app.workspace.on('file-open', this.onFileOpen.bind(this)));
     //this.registerEvent(this.app.workspace.on('editor-change', this.onEditorChange.bind(this)));
-    console.log("onOpen");
     this.addActions();
+
   }
   async onClose() {
+    this.unsubscribe.forEach((unsub: any) => unsub());
+    this.unsubscribe = [];
+    this.markdownCache = [];    
   }
+  onFileOpen(file: TFile) {
+    if (file.extension === 'md') {
+      this.setState({ file }, { history: true });
+    }
+  }
+
   moveCursorToPage(page: number) {
     //scroll to the cursor position
     if (page > -1) {
@@ -198,7 +213,22 @@ export class PreviewView extends ItemView implements PreviewViewState {
   }
 
   async setState(state: PreviewViewState, result: ViewStateResult) {
+
+    this.unsubscribe.forEach((unsub: any) => unsub());
+    this.unsubscribe = [];
+    this.markdownCache = [];    
     if (state.file) {
+      // subscribe
+      const $content = createOrGetMarpSlideInfoStore(state.file);
+      this.unsubscribe.push($content.subscribe((info) => {
+        this.renderPreview(info);
+      }))
+      const $page = createOrGetCurrentPageStore(state.file);
+      this.unsubscribe.push($page.subscribe((page) => {
+        this.moveCursorToPage(page);
+      }))
+      console.log("subscribe", state.file.path,this.unsubscribe);
+
       this.file = state.file;
     }
     return super.setState(state, result);

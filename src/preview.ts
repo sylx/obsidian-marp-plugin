@@ -141,7 +141,7 @@ export class PreviewView extends ItemView implements PreviewViewState {
       this.markdownCache = new Array(pageInfo.length);
     }
     for(const info of pageInfo){
-      if(info.isUpdate){
+      if(info.isUpdate || this.markdownCache[info.page] === undefined){
         //様々な変換を行う
         this.markdownCache[info.page] = await pipeAsync<string>(
           this.replaceImageWikilinks.bind(this), // imageをwikilinkに変換
@@ -204,7 +204,9 @@ export class PreviewView extends ItemView implements PreviewViewState {
       allSlides.forEach((slide, index) => {
         if (index === page) {
           slide.classList.add('cursor');
-          slide.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => {
+            slide.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 100);
         } else {
           slide.classList.remove('cursor');
         }

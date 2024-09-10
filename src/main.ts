@@ -16,7 +16,7 @@ export default class MarpPlugin extends Plugin {
     await this.loadSettings();
 
     const editorExtension = ViewPlugin.define<EditorExtensionPluginValue>(view=>{
-      return new EditorExtensionPluginValue(view,this.app);
+      return new EditorExtensionPluginValue(view,this);
     },pluginSpec);
     this.registerEditorExtension([editorExtension]);
 

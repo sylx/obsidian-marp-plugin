@@ -10,27 +10,35 @@ import {
 import { getPreviewView, getPreviewViewByFile } from "./preview";
 import { EditorState } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
-import { App, TFile } from "obsidian";
+import { App, EditorPosition, EditorRange, MarkdownView, Plugin, TFile, View } from "obsidian";
 import { mergeMarpPageInfo, setCurrentPage, setMarpPageInfo,MarpSlidePageInfo, createOrGetCurrentPageStore } from "./store";
 
 export class EditorExtensionPluginValue implements PluginValue {
   decorations: DecorationSet | undefined;
   file: TFile | null = null;
+  plugin: Plugin;
   app: App;
   pageInfo: MarpSlidePageInfo[] = [];
   unsubscribe: any[] = [];
+  globalMarkdownView: MarkdownView | null = null;
+  cursorMoving: boolean = false;
   
-  constructor(view: EditorView,app: App) {
+  constructor(view: EditorView,plugin: Plugin) {
+	this.plugin = plugin;
+	this.app = plugin.app;
     // ファイルを開いた時、別のファイルに移った時再生成される
     console.log('MEditorExtensionPlugin instantiated',{view,app});
     this.app = app;
     this.pageInfo=this.createPageInfo(view.state);
     this.file = this.app.workspace.getActiveFile();
+	this.globalMarkdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
     
     //subscribe
     if(this.file){
       const $page = createOrGetCurrentPageStore(this.file);
-      this.unsubscribe.push($page.subscribe((page)=>{
+      this.unsubscribe.push($page.subscribe(({page,setBy},oldVal)=>{
+		if(!oldVal) return;
+		if(setBy === "editor") return;
         this.moveEditorCursor(view,page);
       }));
     }
@@ -48,29 +56,54 @@ export class EditorExtensionPluginValue implements PluginValue {
     setCurrentPage(this.file,page);
   }
   moveEditorCursor(view: EditorView,page: number){
-    if(this.pageInfo.length < page) return;
-    const currentPos = view.state.selection.main.from
+	this.cursorMoving = true;
+	const markdownView = this.getCurrentViewOfType();
     const targetPageInfo = this.pageInfo[page];
-    if(currentPos < targetPageInfo.start || currentPos > targetPageInfo.end){
-      view.dispatch({
-        selection: {
-          anchor: targetPageInfo.end,
-          head: targetPageInfo.start
-        },
-        effects: EditorView.scrollIntoView(targetPageInfo.start,{
-          y: "center"
-        })
-      })
-      //focus
-      view.focus();
-    }
+	if(!markdownView || !targetPageInfo) return;
+	const editor = markdownView.editor
+	const pos : EditorPosition = page > 0 ?{
+		ch: 0,
+		line: view.state.doc.lineAt(targetPageInfo.start).number + 1
+	}  : {
+		ch: 0,
+		line: 0
+	}
+	view.dispatch({
+		selection: {
+			anchor: targetPageInfo.start
+		},
+	})
+	editor.scrollIntoView({
+		from: pos,
+		to: pos
+	},true)
+	this.app.workspace.setActiveLeaf(markdownView!.leaf, {
+		focus: true,
+	});	
+	this.cursorMoving = false;
   }
+  public getCurrentViewOfType() {
+	// get the current active view
+	let markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
+	// To distinguish whether the current view is hidden or not markdownView
+	let currentView = this.app.workspace.getActiveViewOfType(View) as MarkdownView;
+	// solve the problem of closing always focus new tab setting
+	if (markdownView !== null) {
+		this.globalMarkdownView = markdownView;
+	} else {
+		// fix the plugin shutdown problem when the current view is not exist
+		if (currentView == null || currentView?.file?.extension == "md") {
+			markdownView = this.globalMarkdownView
+		}
+	}
+	return markdownView;
+  }  
   update(update: ViewUpdate) {
+	if(this.cursorMoving) return;
     this.file = this.app.workspace.getActiveFile();
     if(update.docChanged){
       const newPageInfo = this.createPageInfo(update.state);
       const pagesOrFalse = this.detectUpdatePages(newPageInfo);
-      console.log('update',pagesOrFalse);
       if(pagesOrFalse === false){
         //検出不可なので、全部更新
         this.renderPreview(newPageInfo,true);
@@ -97,7 +130,6 @@ export class EditorExtensionPluginValue implements PluginValue {
     const tree=syntaxTree(state)
     tree.iterate({
       enter: node=>{
-        console.log(node.type,state.sliceDoc(node.from,node.to));
         if(node.type.name === 'hr'){
           newPageInfo.push({
             page: newPageInfo.length,
@@ -110,8 +142,6 @@ export class EditorExtensionPluginValue implements PluginValue {
         }
       }
     })
-    console.log(tree);
-
     if(last_offset < state.doc.length){
       newPageInfo.push({
         page: newPageInfo.length,

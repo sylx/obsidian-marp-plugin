@@ -1,5 +1,4 @@
-import { on } from "events";
-import { atom, onMount } from "nanostores";
+import { atom, map, onMount } from "nanostores";
 import { TFile } from "obsidian";
 
 export type MarpSlidePageInfo = {
@@ -18,8 +17,13 @@ export type MarkdownElementMeta = {
     content: string;
 };
 
+export type MarpSlidePageNumberState = {
+	page: number;
+	setBy: "preview" | "editor";
+};
+
 type MarpSlidePageInfoStore = ReturnType<typeof atom<MarpSlidePageInfo[]>>;
-type MarpSlideCurrentPage = ReturnType<typeof atom<number>>;
+type MarpSlideCurrentPage = ReturnType<typeof map<MarpSlidePageNumberState>>;
 
 const marpSlideInfoStoreMap = new Map<TFile, MarpSlidePageInfoStore>();
 const marpSlideCurrentPage = new Map<TFile, MarpSlideCurrentPage>();
@@ -64,7 +68,7 @@ export const createOrGetCurrentPageStore = (file: TFile) => {
     if(marpSlideCurrentPage.has(file)){
         return marpSlideCurrentPage.get(file)!;
     }
-    const $page = atom(0);
+    const $page = map<MarpSlidePageNumberState>({page: 0,setBy: "preview"} );
     onMount($page,()=>{
         console.log("onMount page",file.path);
         return () => {
@@ -75,11 +79,15 @@ export const createOrGetCurrentPageStore = (file: TFile) => {
     return $page;
 }
 
-export const setCurrentPage = (file: TFile,page: number) => {
+export const setCurrentPage = (file: TFile,page: number,setBy: MarpSlidePageNumberState["setBy"] = "editor") => {
+	console.log("setCurrentPage",file.path,page,setBy);
     const $page = createOrGetCurrentPageStore(file);
-    $page.set(page);
+    $page.set({
+		page,
+		setBy
+	});
 }
 export const getCurrentPage = (file: TFile) => {
     const $page = createOrGetCurrentPageStore(file);
-    return $page.get();
+    return $page.get().page;
 }

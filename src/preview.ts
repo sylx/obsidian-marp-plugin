@@ -14,7 +14,7 @@ import { join } from 'path';
 import fs from 'fs/promises';
 
 import morphdom from 'morphdom';
-import { createOrGetCurrentPageStore, createOrGetMarpSlideInfoStore, MarpSlidePageInfo } from './store';
+import { createOrGetCurrentPageStore, createOrGetMarpSlideInfoStore, MarpSlidePageInfo, setCurrentPage } from './store';
 
 
 export const MARP_PREVIEW_VIEW_TYPE = 'marp-preview-view';
@@ -189,8 +189,9 @@ export class PreviewView extends ItemView implements PreviewViewState {
       if(svg){
         const allSlides = this.bodyEl.querySelectorAll('.marpit > svg');
         const page = Array.from(allSlides).indexOf(svg);
-        const $page = createOrGetCurrentPageStore(this.file!);
-        $page.set(page);
+		console.log({page});
+		setCurrentPage(this.file!, page,"preview");
+		//this.moveCursorToPage(page);
       }
     })
     //this.registerEvent(this.app.workspace.on('editor-change', this.onEditorChange.bind(this)));
@@ -237,9 +238,10 @@ export class PreviewView extends ItemView implements PreviewViewState {
         this.renderPreview(info);
       }))
       const $page = createOrGetCurrentPageStore(state.file);
-      this.unsubscribe.push($page.subscribe((page) => {
+      this.unsubscribe.push($page.subscribe(({page,setBy}) => {
+		if(setBy === "preview") return;
         this.moveCursorToPage(page);
-      }))
+      }));
       console.log("subscribe", state.file.path,this.unsubscribe);
 
       this.file = state.file;

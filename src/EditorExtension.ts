@@ -68,18 +68,8 @@ export class EditorExtensionPluginValue implements PluginValue {
 		ch: 0,
 		line: 0
 	}
-	view.dispatch({
-		selection: {
-			anchor: targetPageInfo.start
-		},
-	})
-	editor.scrollIntoView({
-		from: pos,
-		to: pos
-	},true)
-	this.app.workspace.setActiveLeaf(markdownView!.leaf, {
-		focus: true,
-	});	
+	editor.setCursor(pos);
+	editor.focus();
 	this.cursorMoving = false;
   }
   public getCurrentViewOfType() {

@@ -1,4 +1,4 @@
-import { FileSystemAdapter, Notice, Plugin, TFile } from 'obsidian';
+import { EditorPosition, FileSystemAdapter, Notice, Plugin, TFile } from 'obsidian';
 import { MARP_DEFAULT_SETTINGS, MarpPluginSettings } from './settings';
 import { MARP_PREVIEW_VIEW_TYPE, PreviewView } from './preview';
 import { MarpSettingTab } from './settingTab';
@@ -42,6 +42,13 @@ export default class MarpPlugin extends Plugin {
         await that.activateView(file);
       },
     });
+	this.addCommand({
+		id: 'marp-test',
+		name: 'Marp: Test',
+		editorCallback: async (editor, ctx) => {
+			editor.setCursor({ line: 0, ch: 0 });
+		}
+	})
     this.registerView(
       MARP_PREVIEW_VIEW_TYPE,
       leaf => new PreviewView(leaf, this.settings),

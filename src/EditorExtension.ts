@@ -11,13 +11,14 @@ import { getPreviewView, getPreviewViewByFile } from "./preview";
 import { EditorState } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { App, TFile } from "obsidian";
-import { mergeMarpPageInfo, setCurrentPage, setMarpPageInfo,MarpSlidePageInfo } from "./store";
+import { mergeMarpPageInfo, setCurrentPage, setMarpPageInfo,MarpSlidePageInfo, createOrGetCurrentPageStore } from "./store";
 
 export class EditorExtensionPluginValue implements PluginValue {
   decorations: DecorationSet | undefined;
   file: TFile | null = null;
   app: App;
   pageInfo: MarpSlidePageInfo[] = [];
+  unsubscribe: any[] = [];
   
   constructor(view: EditorView,app: App) {
     // ファイルを開いた時、別のファイルに移った時再生成される
@@ -26,6 +27,13 @@ export class EditorExtensionPluginValue implements PluginValue {
     this.pageInfo=this.createPageInfo(view.state);
     this.file = this.app.workspace.getActiveFile();
     
+    //subscribe
+    if(this.file){
+      const $page = createOrGetCurrentPageStore(this.file);
+      this.unsubscribe.push($page.subscribe((page)=>{
+        this.moveEditorCursor(view,page);
+      }));
+    }
     //previewがあれば更新
     this.renderPreview(this.pageInfo,true);
   }
@@ -35,11 +43,28 @@ export class EditorExtensionPluginValue implements PluginValue {
     if(!this.file) return;
     notPagrtial ? setMarpPageInfo(this.file,pageInfo) : mergeMarpPageInfo(this.file,pageInfo);
   }
-  moveCursorToPage(page: number){
+  movePreviewCursor(page: number){
     if(!this.file) return;
     setCurrentPage(this.file,page);
   }
-
+  moveEditorCursor(view: EditorView,page: number){
+    if(this.pageInfo.length < page) return;
+    const currentPos = view.state.selection.main.from
+    const targetPageInfo = this.pageInfo[page];
+    if(currentPos < targetPageInfo.start || currentPos > targetPageInfo.end){
+      view.dispatch({
+        selection: {
+          anchor: targetPageInfo.end,
+          head: targetPageInfo.start
+        },
+        effects: EditorView.scrollIntoView(targetPageInfo.start,{
+          y: "center"
+        })
+      })
+      //focus
+      view.focus();
+    }
+  }
   update(update: ViewUpdate) {
     this.file = this.app.workspace.getActiveFile();
     if(update.docChanged){
@@ -59,7 +84,7 @@ export class EditorExtensionPluginValue implements PluginValue {
       const offset = selection.head;
       this.pageInfo.forEach((info,index)=>{
         if(info.start <= offset && offset <= info.end){
-          this.moveCursorToPage(info.page);
+          this.movePreviewCursor(info.page);
         }
       })
     }
@@ -69,8 +94,10 @@ export class EditorExtensionPluginValue implements PluginValue {
     // markdownの---を探す
     let last_offset : number = 0;
     const newPageInfo: MarpSlidePageInfo[] = [];
-    syntaxTree(state).iterate({
+    const tree=syntaxTree(state)
+    tree.iterate({
       enter: node=>{
+        console.log(node.type,state.sliceDoc(node.from,node.to));
         if(node.type.name === 'hr'){
           newPageInfo.push({
             page: newPageInfo.length,
@@ -83,6 +110,8 @@ export class EditorExtensionPluginValue implements PluginValue {
         }
       }
     })
+    console.log(tree);
+
     if(last_offset < state.doc.length){
       newPageInfo.push({
         page: newPageInfo.length,
@@ -112,6 +141,8 @@ export class EditorExtensionPluginValue implements PluginValue {
 
   destroy() {
     // ...
+    this.unsubscribe.forEach((unsub: any) => unsub());
+    this.unsubscribe = [];
     console.log('EditorExtensionPlugin destroyed');
   }
 }

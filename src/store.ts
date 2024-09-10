@@ -7,7 +7,15 @@ export type MarpSlidePageInfo = {
     start: number;
     end: number;
     content: string;
+    elementMeta?: MarkdownElementMeta[];
     isUpdate?: boolean;
+};
+
+export type MarkdownElementMeta = {
+    type: string;
+    start: number;
+    end: number;
+    content: string;
 };
 
 type MarpSlidePageInfoStore = ReturnType<typeof atom<MarpSlidePageInfo[]>>;

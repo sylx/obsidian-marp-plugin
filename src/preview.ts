@@ -182,6 +182,17 @@ export class PreviewView extends ItemView implements PreviewViewState {
   async onOpen() {
     //this.registerEvent(this.app.vault.on('modify', this.onChange.bind(this)));
     this.registerEvent(this.app.workspace.on('file-open', this.onFileOpen.bind(this)));
+    this.registerDomEvent(this.containerEl,'click',(e)=>{
+      const clicked = e.target as HTMLElement;
+      //svgまで遡る
+      const svg = clicked.closest('svg');
+      if(svg){
+        const allSlides = this.bodyEl.querySelectorAll('.marpit > svg');
+        const page = Array.from(allSlides).indexOf(svg);
+        const $page = createOrGetCurrentPageStore(this.file!);
+        $page.set(page);
+      }
+    })
     //this.registerEvent(this.app.workspace.on('editor-change', this.onEditorChange.bind(this)));
     this.addActions();
 

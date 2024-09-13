@@ -1,17 +1,14 @@
 import {
-  ViewUpdate,
-  PluginSpec,
-  PluginValue,
-  EditorView,
-  ViewPlugin,
-  Decoration,
-  DecorationSet
+	ViewUpdate,
+	PluginSpec,
+	PluginValue,
+	EditorView, Decoration,
+	DecorationSet
 } from "@codemirror/view";
-import { getPreviewView, getPreviewViewByFile } from "./preview";
 import { EditorState } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
-import { App, EditorPosition, EditorRange, MarkdownView, Plugin, TFile, View } from "obsidian";
-import { mergeMarpPageInfo, setCurrentPage, setMarpPageInfo,MarpSlidePageInfo, createOrGetCurrentPageStore } from "./store";
+import { App, EditorPosition, MarkdownView, Plugin, TFile, View } from "obsidian";
+import { mergeMarpPageInfo, setCurrentPage, setMarpPageInfo, MarpSlidePageInfo, createOrGetCurrentPageStore, MarpSlidePageElement } from "./store";
 import { SyntaxNodeRef } from "@lezer/common";
 
 export class EditorExtensionPluginValue implements PluginValue {
@@ -28,8 +25,7 @@ export class EditorExtensionPluginValue implements PluginValue {
 	this.plugin = plugin;
 	this.app = plugin.app;
     // ファイルを開いた時、別のファイルに移った時再生成される
-    console.log('MEditorExtensionPlugin instantiated',{view,app});
-    this.app = app;
+    //console.log('EditorExtensionPlugin instantiated',{view,app});
     this.pageInfo=this.createPageInfo(view.state);
     this.file = this.app.workspace.getActiveFile();
 	this.globalMarkdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -119,7 +115,7 @@ export class EditorExtensionPluginValue implements PluginValue {
     let last_offset : number = 0;
     const newPageInfo: MarpSlidePageInfo[] = [];
     const tree=syntaxTree(state)
-	let last_node : SyntaxNodeRef | null = null;
+	const elements : MarpSlidePageElement[] = [];
     tree.iterate({
       enter: node=>{
         if(node.type.name === 'hr'){
@@ -128,11 +124,19 @@ export class EditorExtensionPluginValue implements PluginValue {
             start: last_offset,
             end: node.from,
             content: state.sliceDoc(last_offset,node.from),
+			elements: Array.from(elements), // clone
             isUpdate: true
           })
+		  elements.length = 0;
           last_offset = node.to;
-        }else{
-			last_node = node;
+        }else if((node as any).stack?.length === 0){
+			elements.push({
+				type: node.type.name,
+				start: node.from,
+				end: node.to,
+				content: state.sliceDoc(node.from,node.to)
+			})
+			console.log({elements})
 		}
       }
     })

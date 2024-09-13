@@ -1,16 +1,17 @@
 import { atom, map, onMount } from "nanostores";
 import { TFile } from "obsidian";
+import { SyntaxNodeRef } from "@lezer/common";
 
 export type MarpSlidePageInfo = {
     page: number;
     start: number;
     end: number;
     content: string;
-    elementMeta?: MarkdownElementMeta[];
+	elements?: MarpSlidePageElement[];
     isUpdate?: boolean;
 };
 
-export type MarkdownElementMeta = {
+export type MarpSlidePageElement = {
     type: string;
     start: number;
     end: number;

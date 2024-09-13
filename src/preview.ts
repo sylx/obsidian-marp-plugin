@@ -89,12 +89,18 @@ export class PreviewView extends ItemView implements PreviewViewState {
     const mermaid: string[] = []
     for (let m of markdown.matchAll(wikilinkRegex)) {
       const name = m[1];
-      //nameはmarkdownなので、cssコードブロックを抽出する
+      const cssFile=this.app.metadataCache.getFirstLinkpathDest(name, this.file!.path);
+      if (!cssFile){
+        console.error(`CSS file ${name} not found`);
+        continue;
+      }
       const basePath = (
         this.app.vault.adapter as FileSystemAdapter
       ).getBasePath();
-      const cssMdPath = join(basePath, name);
-      const cssMdContent = await fs.readFile(cssMdPath + '.md', 'utf-8');
+
+      const cssMdPath = join(basePath, cssFile.path);
+
+      const cssMdContent = await fs.readFile(cssMdPath, 'utf-8');
       //cssコードブロックを抽出（すべてのCSSコードブロックを連結する）
       // Array.from(cssMdContent.matchAll(/```css\n(.+?)\n```/gsm)).reduce<string[]>((acc,v)=>[...acc,v[1]],[]);
       const cssCode = matchAllJoin(/```css\n(.+?)\n```/gsm, cssMdContent);
@@ -123,6 +129,7 @@ export class PreviewView extends ItemView implements PreviewViewState {
     const mermaid: [string, string][] = []
     for (let m of markdown.matchAll(mermaidRegex)) {
       const code = m[1];
+	  console.log({code});
       const dataurl = await convertMermaidToDataUrl(code);
       mermaid.push([code, dataurl]);
     }
@@ -234,11 +241,11 @@ export class PreviewView extends ItemView implements PreviewViewState {
     if (state.file) {
       // subscribe
       const $content = createOrGetMarpSlideInfoStore(state.file);
-      this.unsubscribe.push($content.subscribe((info) => {
+      this.register($content.subscribe((info) => {
         this.renderPreview(info);
       }))
       const $page = createOrGetCurrentPageStore(state.file);
-      this.unsubscribe.push($page.subscribe(({page,setBy}) => {
+      this.register($page.subscribe(({page,setBy}) => {
 		if(setBy === "preview") return;
         this.moveCursorToPage(page);
       }));

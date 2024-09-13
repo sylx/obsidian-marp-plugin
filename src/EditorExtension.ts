@@ -12,6 +12,7 @@ import { EditorState } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { App, EditorPosition, EditorRange, MarkdownView, Plugin, TFile, View } from "obsidian";
 import { mergeMarpPageInfo, setCurrentPage, setMarpPageInfo,MarpSlidePageInfo, createOrGetCurrentPageStore } from "./store";
+import { SyntaxNodeRef } from "@lezer/common";
 
 export class EditorExtensionPluginValue implements PluginValue {
   decorations: DecorationSet | undefined;
@@ -118,6 +119,7 @@ export class EditorExtensionPluginValue implements PluginValue {
     let last_offset : number = 0;
     const newPageInfo: MarpSlidePageInfo[] = [];
     const tree=syntaxTree(state)
+	let last_node : SyntaxNodeRef | null = null;
     tree.iterate({
       enter: node=>{
         if(node.type.name === 'hr'){
@@ -129,7 +131,9 @@ export class EditorExtensionPluginValue implements PluginValue {
             isUpdate: true
           })
           last_offset = node.to;
-        }
+        }else{
+			last_node = node;
+		}
       }
     })
     if(last_offset < state.doc.length){

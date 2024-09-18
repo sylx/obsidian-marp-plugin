@@ -2,11 +2,11 @@ import { App, FileSystemAdapter, getLinkpath } from "obsidian";
 import { MarpSlidePageInfo } from "./store";
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { toMarkdown } from 'mdast-util-to-markdown';
-import { Parent, Root } from "mdast-util-from-markdown/lib";
+import { Code, Parent, Root } from "mdast-util-from-markdown/lib";
 import { visit } from "unist-util-visit";
 import { Image, Text, Node, RootContent } from "mdast";
 import mimes from 'mime';
-import { convertToDataUrlFromPath, convertToDataUrlFromUrl } from "./convertImage";
+import { convertToDataUrlFromPath, convertToDataUrlFromUrl,convertMermaidToDataUrl } from "./convertImage";
 import { getFilePathByLinkPath, getResourcePathByFullPath } from "./tools";
 import { normalize } from "path";
 import { marp } from "./marp";
@@ -50,7 +50,7 @@ export class MarpMarkdownProcessor {
 		}else{
 			await this.convertImageToDataUrl(tree,pageInfo.sourcePath);
 		}
-		await this.convertMermaidToDataUrl(tree);
+		await this.mermaidCodeToHtmlImg(tree);
 		const markdown = toMarkdown(tree);
 		console.log({
 			tree,
@@ -154,7 +154,18 @@ export class MarpMarkdownProcessor {
 			}
 		})		
 	}
-	protected async convertMermaidToDataUrl(tree: Root): Promise<void> {
+	protected async mermaidCodeToHtmlImg(tree: Root): Promise<void> {
+		await transformAsync(tree, 'code', async (node: Code) => {
+			if(node.lang !== "mermaid") return null;
+			const code = node.value;
+			const dataurl = await convertMermaidToDataUrl(code);
+			if(!dataurl) return null;
+			const htmlNode = {
+				type: 'html',
+				value: `<img src="${dataurl}" alt="mermaid" />`
+			} as Node;
+			return htmlNode;
+		});
 	}
 	protected pickupNode(tree: Root,matcher: (node: Node) => boolean): Node | null {
 		let matched: Node | null = null;

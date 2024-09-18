@@ -3,6 +3,7 @@ import { FileSystemAdapter, Notice, requestUrl } from 'obsidian';
 import { join, normalize } from 'path';
 import mimes from 'mime';
 import mermaid from 'mermaid';
+import { existsSync } from 'fs';
 
 const prefix = 'app://local';
 
@@ -32,39 +33,22 @@ async function convertPathToLocalLink(path: string): Promise<string | null> {
   }
 }
 
-export async function convertToBase64(path: string): Promise<string | null> {
-  const mime = mimes.getType(path);
+export async function convertToBase64(fullpath: string): Promise<string | null> {
+  const mime = mimes.getType(fullpath);
   if (!mime) return null;
-  if (await app.vault.adapter.exists(path)) {
-    const basePath = (
-      this.app.vault.adapter as FileSystemAdapter
-    ).getBasePath();
-    return readFileAsBase64(normalize(join(basePath, path)));
+  if(existsSync(fullpath)){
+    return readFileAsBase64(fullpath);
   }
-
-  try {
-    await access(path);
-    return readFileAsBase64(normalize(path));
-  } catch {
-    /* empty */
-  }
-
-  try {
-    if (path.startsWith(prefix)) {
-      // remove `app://local`
-      const newPath = path.slice(prefix.length);
-      await access(newPath);
-      return readFileAsBase64(normalize(newPath));
-    }
-  } catch {
-    /* empty */
-  }
-
-  // try to get image from web
-  return urlToBase64(path);
+  return null;
 }
 
-async function urlToBase64(url: string): Promise<string | null> {
+export async function convertToDataUrlFromPath(path: string): Promise<string | null> {
+  const base64 = await convertToBase64(path);
+  if (!base64) return null;
+  return addMimeToBase64Data(path, base64);
+}
+
+export async function convertToDataUrlFromUrl(url: string): Promise<string | null> {
   try {
     return addMimeToBase64Data(
       url,

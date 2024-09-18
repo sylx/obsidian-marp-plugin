@@ -15,6 +15,7 @@ import fs from 'fs/promises';
 
 import morphdom from 'morphdom';
 import { createOrGetCurrentPageStore, createOrGetMarpSlideInfoStore, MarpSlidePageInfo, setCurrentPage } from './store';
+import { MarpMarkdownProcessor } from './MarpMarkdownProcessor';
 
 
 export const MARP_PREVIEW_VIEW_TYPE = 'marp-preview-view';
@@ -48,6 +49,7 @@ export class PreviewView extends ItemView implements PreviewViewState {
   protected styleEl: HTMLStyleElement;
   protected markdownCache: string[] = [];
   protected unsubscribe: any[] = [];
+  protected processor: MarpMarkdownProcessor;
 
   constructor(leaf: WorkspaceLeaf, settings: MarpPluginSettings) {
     super(leaf);
@@ -55,6 +57,7 @@ export class PreviewView extends ItemView implements PreviewViewState {
     this.settings = settings;
     this.bodyEl = this.contentEl.createDiv();
     this.styleEl = this.contentEl.createEl('style');
+	this.processor = new MarpMarkdownProcessor(this.app);
   }
 
   getViewType(): string {
@@ -147,14 +150,12 @@ export class PreviewView extends ItemView implements PreviewViewState {
     if(this.markdownCache.length !== pageInfo.length){
       this.markdownCache = new Array(pageInfo.length);
     }
+	console.log("renderPreview",pageInfo);
     for(const info of pageInfo){
       if(info.isUpdate || this.markdownCache[info.page] === undefined){
         //様々な変換を行う
-        this.markdownCache[info.page] = await pipeAsync<string>(
-          this.replaceImageWikilinks.bind(this), // imageをwikilinkに変換
-          this.replaceCssWikiLinks.bind(this), // styleへのリンクを処理
-          this.replaceMermaidCodeBlock.bind(this), // mermaidコードを画像に変換
-        )(info.content);
+		const markdown = await this.processor.process(info,true);
+        this.markdownCache[info.page] = markdown;
       }
     }
     const { html, css } = marp.render(this.markdownCache.join('\n---\n'));
@@ -196,7 +197,6 @@ export class PreviewView extends ItemView implements PreviewViewState {
       if(svg){
         const allSlides = this.bodyEl.querySelectorAll('.marpit > svg');
         const page = Array.from(allSlides).indexOf(svg);
-		console.log({page});
 		setCurrentPage(this.file!, page,"preview");
 		//this.moveCursorToPage(page);
       }
@@ -249,8 +249,7 @@ export class PreviewView extends ItemView implements PreviewViewState {
 		if(setBy === "preview") return;
         this.moveCursorToPage(page);
       }));
-      console.log("subscribe", state.file.path,this.unsubscribe);
-
+      
       this.file = state.file;
     }
     return super.setState(state, result);

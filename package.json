@@ -33,9 +33,12 @@
 	"dependencies": {
 		"@marp-team/marp-core": "^3.9.0",
 		"fix-path": "^4.0.0",
+		"mdast-util-from-markdown": "^2.0.1",
+		"mdast-util-to-markdown": "^2.1.0",
 		"mermaid": "^10.9.1",
 		"mime": "^4.0.4",
 		"morphdom": "^2.7.4",
-		"nanostores": "^0.11.3"
+		"nanostores": "^0.11.3",
+		"unist-util-visit": "^5.0.0"
 	}
 }

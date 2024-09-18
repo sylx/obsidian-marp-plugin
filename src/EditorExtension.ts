@@ -8,7 +8,7 @@ import {
 import { EditorState } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { App, EditorPosition, MarkdownView, Plugin, TFile, View } from "obsidian";
-import { mergeMarpPageInfo, setCurrentPage, setMarpPageInfo, MarpSlidePageInfo, createOrGetCurrentPageStore, MarpSlidePageElement } from "./store";
+import { mergeMarpPageInfo, setCurrentPage, setMarpPageInfo, MarpSlidePageInfo, createOrGetCurrentPageStore } from "./store";
 import { SyntaxNodeRef } from "@lezer/common";
 
 export class EditorExtensionPluginValue implements PluginValue {
@@ -115,7 +115,6 @@ export class EditorExtensionPluginValue implements PluginValue {
     let last_offset : number = 0;
     const newPageInfo: MarpSlidePageInfo[] = [];
     const tree=syntaxTree(state)
-	const elements : MarpSlidePageElement[] = [];
     tree.iterate({
       enter: node=>{
         if(node.type.name === 'hr'){
@@ -124,20 +123,11 @@ export class EditorExtensionPluginValue implements PluginValue {
             start: last_offset,
             end: node.from,
             content: state.sliceDoc(last_offset,node.from),
-			elements: Array.from(elements), // clone
-            isUpdate: true
+            isUpdate: true,
+			sourcePath: this.file?.path ?? ""
           })
-		  elements.length = 0;
           last_offset = node.to;
-        }else if((node as any).stack?.length === 0){
-			elements.push({
-				type: node.type.name,
-				start: node.from,
-				end: node.to,
-				content: state.sliceDoc(node.from,node.to)
-			})
-			console.log({elements})
-		}
+        }
       }
     })
     if(last_offset < state.doc.length){
@@ -146,7 +136,8 @@ export class EditorExtensionPluginValue implements PluginValue {
         start: last_offset,
         end: state.doc.length,
         content: state.sliceDoc(last_offset,state.doc.length),
-        isUpdate: true
+        isUpdate: true,
+		sourcePath: this.file?.path ?? ""
       })
     }
     return newPageInfo;

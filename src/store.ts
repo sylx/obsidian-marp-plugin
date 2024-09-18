@@ -7,15 +7,8 @@ export type MarpSlidePageInfo = {
     start: number;
     end: number;
     content: string;
-	elements?: MarpSlidePageElement[];
     isUpdate?: boolean;
-};
-
-export type MarpSlidePageElement = {
-    type: string;
-    start: number;
-    end: number;
-    content: string;
+	sourcePath: string;
 };
 
 export type MarpSlidePageNumberState = {

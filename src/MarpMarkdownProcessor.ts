@@ -53,6 +53,7 @@ export class MarpMarkdownProcessor {
 			extensions: [frontmatter()],
 			mdastExtensions: [frontmatterFromMarkdown()]
 		});
+		console.log({"before": pageInfo.content, "tree": JSON.parse(JSON.stringify(tree))})
 		await this.removeFrontmatter(tree);
 
 		await this.convertWikiLinkToImage(tree);
@@ -66,7 +67,6 @@ export class MarpMarkdownProcessor {
 		const markdown = toMarkdown(tree);
 		console.log({
 			tree,
-			before: pageInfo.content,
 			after: markdown
 		})
 		return markdown;
@@ -177,9 +177,10 @@ export class MarpMarkdownProcessor {
 			const code = node.value;
 			const dataurl = await convertMermaidToDataUrl(code);
 			if (!dataurl) return null;
+			const style = node.meta ? this.metaToStyle(node.meta) : "";
 			const htmlNode = {
 				type: 'html',
-				value: `<img src="${dataurl}" alt="mermaid" class="mermaid-image" />`
+				value: `<img src="${dataurl}" alt="mermaid" class="mermaid-image" ${style} />`
 			} as Node;
 			return htmlNode;
 		});
@@ -190,5 +191,33 @@ export class MarpMarkdownProcessor {
 			matched = node;
 		});
 		return matched;
+	}
+
+	/** 
+	 * ```mermaid 200 -> style="width: 200px"
+	 * ```mermaid 200x300 -> style="width: 200px; height: 300px"
+	 * ```mermaid w:200 -> style="width: 200px"* 
+	 * ```mermaid h:200 -> style="height: 200px"
+	*/
+	protected metaToStyle(meta: string): string {
+		const style: string[] = [];
+		const match = meta.match(/(w|h):(\d+)/);
+		if (match) {
+			if (match[1] === "w") {
+				style.push(`width: ${match[2]}px`);
+			} else {
+				style.push(`height: ${match[2]}px`);
+			}
+		} else {
+			const [width, height] = meta.split("x");
+			if (width) {
+				style.push(`width: ${width}px`);
+			}
+			if (height) {
+				style.push(`height: ${height}px`);
+			}
+		}
+		return style.length > 0 ? `style="${style.join("; ")}"` : "";
+
 	}
 }

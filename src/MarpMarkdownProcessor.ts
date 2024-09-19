@@ -1,15 +1,13 @@
-import { App, FileSystemAdapter, getLinkpath } from "obsidian";
+import { App } from "obsidian";
 import { MarpSlidePageInfo } from "./store";
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { toMarkdown } from 'mdast-util-to-markdown';
 import { Code, Parent, Root } from "mdast-util-from-markdown/lib";
 import { visit } from "unist-util-visit";
 import { Image, Text, Node, RootContent } from "mdast";
-import mimes from 'mime';
-import { convertToDataUrlFromPath, convertToDataUrlFromUrl,convertMermaidToDataUrl } from "./convertImage";
+import { convertToDataUrlFromPath, convertToDataUrlFromUrl, convertMermaidToDataUrl } from "./convertImage";
 import { getFilePathByLinkPath, getResourcePathByFullPath } from "./tools";
 import { normalize } from "path";
-import { marp } from "./marp";
 
 type ReplaceAction = {parent: Parent, index: number, node: Node};
 type ReplaceActionPromise = Promise<ReplaceAction | null>;
@@ -162,7 +160,7 @@ export class MarpMarkdownProcessor {
 			if(!dataurl) return null;
 			const htmlNode = {
 				type: 'html',
-				value: `<img src="${dataurl}" alt="mermaid" />`
+				value: `<img src="${dataurl}" alt="mermaid" class="mermaid-image" />`
 			} as Node;
 			return htmlNode;
 		});

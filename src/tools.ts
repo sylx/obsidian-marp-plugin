@@ -34,3 +34,9 @@ export const getResourcePathByFullPath = async (app: App,path: string): Promise<
 	}
 	return '';
 }
+
+export const getVaultDir = (app: App): string => {
+	return (
+		app.vault.adapter as FileSystemAdapter
+	).getBasePath()
+}

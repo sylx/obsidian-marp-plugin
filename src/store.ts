@@ -37,6 +37,11 @@ export const createOrGetMarpSlideInfoStore = (file: TFile) : MarpSlidePageInfoSt
     return $store;
 }
 
+export const getMarpPageInfo = (file: TFile) => {
+	const store = createOrGetMarpSlideInfoStore(file);
+	return store.get();
+}
+
 export const setMarpPageInfo = (file: TFile,info: MarpSlidePageInfo[]) => {
     const store = createOrGetMarpSlideInfoStore(file);
     store.set(info.map(info=>({...info,isUpdate: true})));

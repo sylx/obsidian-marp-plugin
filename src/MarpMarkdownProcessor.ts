@@ -61,7 +61,8 @@ export class MarpMarkdownProcessor {
 		if (isPreview) {
 			await this.convertImageToResourcePath(tree, pageInfo.sourcePath);
 		} else {
-			await this.convertImageToDataUrl(tree, pageInfo.sourcePath);
+			//await this.convertImageToDataUrl(tree, pageInfo.sourcePath);
+			await this.convertImageToLocalPath(tree, pageInfo.sourcePath);
 		}
 		await this.mermaidCodeToHtmlImg(tree);
 		const markdown = toMarkdown(tree);
@@ -171,6 +172,30 @@ export class MarpMarkdownProcessor {
 			}
 		})
 	}
+	protected async convertImageToLocalPath(tree: Root, sourcePath: string): Promise<void> {	
+		await transformAsync(tree, 'image', async (node: Image) => {
+			if (node.url.startsWith("data:")) {
+				return {
+					type: "html",
+					value: `<img src="${node.url}" alt="${node.alt}" />`
+				} as Node;				
+			} else if (node.url.startsWith("http")) {
+				return null;
+			} else if (node.url.startsWith("file:///")) {
+				const fullpath = node.url.replace("file:///", "")
+				return {
+					...node,
+					url: fullpath,
+				} as Node;
+			} else {
+				const fullpath = await getFilePathByLinkPath(this.app, node.url, sourcePath)
+				return fullpath ? {
+					...node,
+					url: fullpath.replace(/\\/g, "/"),
+				} as Node : null;
+			}
+		})
+	}	
 	protected async mermaidCodeToHtmlImg(tree: Root): Promise<void> {
 		await transformAsync(tree, 'code', async (node: Code) => {
 			if (node.lang !== "mermaid") return null;

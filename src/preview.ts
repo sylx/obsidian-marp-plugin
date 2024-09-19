@@ -1,36 +1,26 @@
 import {
-  FileSystemAdapter,
-  ItemView,
-  TFile,
-  ViewStateResult,
-  Workspace,
-  WorkspaceLeaf
+	FileSystemAdapter,
+	ItemView,
+	TFile,
+	ViewStateResult,
+	Workspace,
+	WorkspaceLeaf
 } from 'obsidian';
-import { convertMermaidToDataUrl } from './convertImage';
 import { exportSlide } from './export';
 import { marp } from './marp';
 import { MarpPluginSettings } from './settings';
 import { join } from 'path';
-import fs from 'fs/promises';
 
 import morphdom from 'morphdom';
-import { createOrGetCurrentPageStore, createOrGetMarpSlideInfoStore, MarpSlidePageInfo, setCurrentPage } from './store';
+import { createOrGetCurrentPageStore, createOrGetMarpSlideInfoStore, getMarpPageInfo, MarpSlidePageInfo, setCurrentPage } from './store';
 import { MarpMarkdownProcessor } from './MarpMarkdownProcessor';
+import { MarpExporter } from './MarpExporter';
 
 
 export const MARP_PREVIEW_VIEW_TYPE = 'marp-preview-view';
 
 interface PreviewViewState {
   file: TFile | null;
-}
-type AsyncFunc<T, R> = (arg: T) => Promise<R>;
-
-function pipeAsync<T>(...fns: AsyncFunc<T, T>[]): AsyncFunc<T, T> {
-  return (x: T) => fns.reduce(async (v, f) => f(await v), Promise.resolve(x));
-}
-
-function matchAllJoin(regex: RegExp, text: string): string {
-  return Array.from(text.matchAll(regex)).reduce((acc, v) => [...acc, v[1]], []).join('\n').trim();
 }
 
 export function getPreviewView(workspace: Workspace): PreviewView | undefined {
@@ -50,6 +40,7 @@ export class PreviewView extends ItemView implements PreviewViewState {
   protected markdownCache: string[] = [];
   protected unsubscribe: any[] = [];
   protected processor: MarpMarkdownProcessor;
+  protected exporter: MarpExporter;
 
   constructor(leaf: WorkspaceLeaf, settings: MarpPluginSettings) {
     super(leaf);
@@ -58,6 +49,7 @@ export class PreviewView extends ItemView implements PreviewViewState {
     this.bodyEl = this.contentEl.createDiv();
     this.styleEl = this.contentEl.createEl('style');
 	this.processor = new MarpMarkdownProcessor(this.app);
+	this.exporter = new MarpExporter(this.app);
   }
 
   getViewType(): string {
@@ -88,15 +80,32 @@ export class PreviewView extends ItemView implements PreviewViewState {
     }
   }
 
+  async prepareExport(pageInfo: readonly MarpSlidePageInfo[]) {
+	const pages = await Promise.all(pageInfo.map(info =>this.processor.process(info,false)))
+	return pages.join('\n---\n');
+  }
+
+  protected downloadFile(buffer: Buffer, filename: string, type: string) {
+	const blob = new Blob([buffer], { type });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url
+	a.download = filename;
+	a.click();
+  }
+	
+
   addActions() {
     const basePath = (
       this.app.vault.adapter as FileSystemAdapter
     ).getBasePath();
     const themeDir = join(basePath, this.settings.themeDir);
-    this.addAction('download', 'Export as PDF', () => {
-      if (this.file) {
-        exportSlide(this.file, 'pdf', basePath, themeDir);
-      }
+    this.addAction('download', 'Export as PDF', async () => {
+		if(!this.file) return
+		const pageInfo = getMarpPageInfo(this.file);
+		const markdown = await this.prepareExport(pageInfo);
+		const buffer = await this.exporter.exportPdf(markdown);
+		this.downloadFile(buffer, this.file.basename + '.pdf', 'application/pdf');
     });
     this.addAction('image', 'Export as PPTX', () => {
       if (this.file) {

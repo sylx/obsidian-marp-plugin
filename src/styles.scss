@@ -17,6 +17,23 @@
     }
 }
 
-.marpit>.cursor {
-    @include gradientDottedBorder(var(--caret-color), 10px, 2px);
+[data-type="marp-preview-view"] {
+	.marpit>.cursor {
+		@include gradientDottedBorder(var(--caret-color), 10px, 2px);
+	}
+	.view-content {
+		position: relative;
+	}
+	.progress {
+		position: sticky;
+		top: -12px;
+		left: 0;
+		width: 100%;
+		.setting-progress-bar {
+			border-radius: 0;
+		}
+		.setting-progress-bar-inner{
+			transition: width 2.0s ease;
+		}
+	}
 }

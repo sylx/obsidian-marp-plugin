@@ -1,6 +1,7 @@
 import {
 	FileSystemAdapter,
 	ItemView,
+	Notice,
 	TFile,
 	ViewStateResult,
 	Workspace,
@@ -15,7 +16,7 @@ import morphdom from 'morphdom';
 import { createOrGetCurrentPageStore, createOrGetMarpSlideInfoStore, getMarpPageInfo, MarpSlidePageInfo, setCurrentPage } from './store';
 import { MarpMarkdownProcessor } from './MarpMarkdownProcessor';
 import { MarpExporter } from './MarpExporter';
-
+import { ProgressBarComponent } from 'obsidian';
 
 export const MARP_PREVIEW_VIEW_TYPE = 'marp-preview-view';
 
@@ -37,19 +38,27 @@ export class PreviewView extends ItemView implements PreviewViewState {
 
   protected bodyEl: HTMLElement;
   protected styleEl: HTMLStyleElement;
+  protected progressBarEl: HTMLElement;
   protected markdownCache: string[] = [];
   protected unsubscribe: any[] = [];
   protected processor: MarpMarkdownProcessor;
   protected exporter: MarpExporter;
+  protected progressBar: ProgressBarComponent;
+
+
 
   constructor(leaf: WorkspaceLeaf, settings: MarpPluginSettings) {
     super(leaf);
     this.file = null;
     this.settings = settings;
-    this.bodyEl = this.contentEl.createDiv();
+	  this.progressBarEl = this.contentEl.createDiv('progress');
+    this.bodyEl = this.contentEl.createDiv('preview-body').createDiv();
     this.styleEl = this.contentEl.createEl('style');
+
 	this.processor = new MarpMarkdownProcessor(this.app);
 	this.exporter = new MarpExporter(this.app);
+	this.progressBar = new ProgressBarComponent(this.progressBarEl);
+	this.progressBar.setValue(0);
   }
 
   getViewType(): string {
@@ -102,10 +111,17 @@ export class PreviewView extends ItemView implements PreviewViewState {
     const themeDir = join(basePath, this.settings.themeDir);
     this.addAction('download', 'Export as PDF', async () => {
 		if(!this.file) return
+		const progress = (value: number,msg?: string) => {
+			 this.progressBar.setValue(value);	
+			 if(msg) new Notice(msg,2000);
+		};
 		const pageInfo = getMarpPageInfo(this.file);
 		const markdown = await this.prepareExport(pageInfo);
-		const buffer = await this.exporter.exportPdf(markdown);
+		progress(20);
+		const buffer = await this.exporter.exportPdf(markdown,progress);
+		progress(100);
 		this.downloadFile(buffer, this.file.basename + '.pdf', 'application/pdf');
+		setTimeout(() => this.progressBar.setValue(0), 5000);
     });
     this.addAction('image', 'Export as PPTX', () => {
       if (this.file) {
@@ -129,13 +145,13 @@ export class PreviewView extends ItemView implements PreviewViewState {
       if(svg){
         const allSlides = this.bodyEl.querySelectorAll('.marpit > svg');
         const page = Array.from(allSlides).indexOf(svg);
-		setCurrentPage(this.file!, page,"preview");
-		//this.moveCursorToPage(page);
+		    setCurrentPage(this.file!, page,"preview");
+		    //this.moveCursorToPage(page);
       }
     })
     //this.registerEvent(this.app.workspace.on('editor-change', this.onEditorChange.bind(this)));
     this.addActions();
-
+    this.progressBar.setValue(0);
   }
   async onClose() {
     this.unsubscribe.forEach((unsub: any) => unsub());

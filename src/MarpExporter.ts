@@ -9,18 +9,20 @@ export class MarpExporter {
 		protected readonly app: App
 	) {
 	}
-	async exportPdf(markdown: string) : Promise<Buffer> {
+	async exportPdf(markdown: string,progress: (n:number,msg?: string)=>void) : Promise<Buffer> {
 		//create tmp file
 		const tmpFile = this.createTmpFile(markdown);
 
 		const buffer= await new Promise<Buffer>((resolve,reject) => {
+			let p = 30;
 			const basedir=getVaultDir(this.app);
 			const cmd=`npx -y @marp-team/marp-cli@latest --html --allow-local-files --pdf --stdin false -o - ${tmpFile}`;
 			const buffer : Buffer[] = [];
 			const proc = spawn(cmd,{ cwd: basedir,shell: true });
+			proc.on("spawn",()=>progress(p+=10));
 			proc.on("error",reject);
-			proc.stdout.on("data",(data) => { buffer.push(Buffer.from(data)); console.log("received",data.length) });
-			proc.stderr.on("data",(data) => { console.log("marp-cli",data.toString()); });
+			proc.stdout.on("data",(data) => { buffer.push(Buffer.from(data)); progress(p+=10); });
+			proc.stderr.on("data",(data) => { console.log("marp-cli",data.toString()); progress(p+=10,data.toString()); });
 			proc.on("close",(code) => {
 				if(code === 0){
 					resolve(Buffer.concat(buffer));

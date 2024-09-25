@@ -60,20 +60,20 @@ export const mergeMarpPageInfo =  (file: TFile,partialInfo: MarpSlidePageInfo[])
     store.set(newInfo);
 }
 
-const marpSlidePageNumberStateMap = map<Record<TFile["path"],MarpSlideState>>();
+const marpSlideStateMap = map<Record<TFile["path"],MarpSlideState>>();
 
 export const subscribeMarpSlideState = (file: TFile,cb: (state:MarpSlideState) => void) => {
-	return subscribeKeys(marpSlidePageNumberStateMap,[file.path],(record) => {
+	return subscribeKeys(marpSlideStateMap,[file.path],(record) => {
 		const state = record[file.path];
 		if(state) cb(state);
 	});
 }
 
 export const emitMarpSlideState = (file: TFile,state: MarpSlideState) => {
-	marpSlidePageNumberStateMap.setKey(file.path,state);
+	marpSlideStateMap.setKey(file.path,state);
 }
 
 export const getMarpSlideState = (file: TFile) => {
-	const r=marpSlidePageNumberStateMap.get()
+	const r=marpSlideStateMap.get()
 	return r[file.path];
 }

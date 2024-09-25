@@ -29,14 +29,21 @@ const transformAsync = async (root: Node, type: string, transformer: (node: Node
 		}) as ReplaceActionPromise;
 		transformPromises.push(promise);
 	});
-	const replaced = (await Promise.all(transformPromises)).filter(Boolean) as ReplaceAction[];
-	replaced.forEach((action, index) => {
+	const actions = (await Promise.all(transformPromises)).filter(Boolean) as ReplaceAction[];
+	const action_dones : ReplaceAction[] = [];
+	//置換を処理
+	actions.forEach((action, index) => {
 		if (action) {
-			if(action.node){
-				action.parent.children.splice(action.index, 1, action.node as RootContent);
+			//処理済みで削除されたノードのインデックスがこのactionより前にある場合、インデックスを修正する
+			const true_index = action.index - action_dones.filter((a) => a.parent === action.parent && action.node === null && a.index < action.index).length;
+			if (action.node === null) {
+				//remove
+				action.parent.children.splice(true_index, 1);
 			}else{
-				action.parent.children.splice(action.index, 1);
+				//replace
+				action.parent.children.splice(true_index, 1, action.node as RootContent);
 			}
+			action_dones.push(action);
 		}
 	});
 	return root

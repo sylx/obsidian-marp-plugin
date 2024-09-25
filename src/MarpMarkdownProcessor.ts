@@ -2,14 +2,13 @@ import { App } from "obsidian";
 import { MarpSlidePageInfo } from "./store";
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { toMarkdown } from 'mdast-util-to-markdown';
-import { Code, Parent, Root } from "mdast-util-from-markdown/lib";
 import { visit } from "unist-util-visit";
-import { Image, Text, Node, RootContent } from "mdast";
+import { Image, Text, Node, RootContent, Yaml, Code, Html, Link, Parent, Root } from "mdast";
 import { convertToDataUrlFromPath, convertToDataUrlFromUrl, convertMermaidToDataUrl } from "./convertImage";
 import { getFilePathByLinkPath, getResourcePathByFullPath } from "./tools";
 import { normalize } from "path";
 import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
-import { frontmatter } from 'micromark-extension-frontmatter'
+import { frontmatter } from 'micromark-extension-frontmatter';
 
 
 type ReplaceAction = { parent: Parent, index: number, node: Node | null };
@@ -60,10 +59,14 @@ export class MarpMarkdownProcessor {
 			extensions: [frontmatter()],
 			mdastExtensions: [frontmatterFromMarkdown()]
 		});
+		console.time("process")
 		console.log({"before": pageInfo.content, "tree": JSON.parse(JSON.stringify(tree))})
-		await this.removeFrontmatter(tree);
-
-		await this.convertWikiLinkToImage(tree);
+		const frontmatterYaml = pageInfo.page === 0 ? await this.removeFrontmatter(tree) : null;
+		await this.convertWikiLinkToLink(tree);
+		await this.convertLinkToStyle(tree,(node) => {
+			return node.url.endsWith(".css");
+		},pageInfo.sourcePath);
+		await this.convertEmbedWikiLinkToImage(tree);
 		await this.convertImageStyle(tree);
 		if (isPreview) {
 			await this.convertImageToResourcePath(tree, pageInfo.sourcePath);
@@ -72,18 +75,25 @@ export class MarpMarkdownProcessor {
 			await this.convertImageToLocalPath(tree, pageInfo.sourcePath);
 		}
 		await this.mermaidCodeToHtmlImg(tree);
-		const markdown = toMarkdown(tree);
+		let markdown = toMarkdown(tree);
+		if(frontmatterYaml){
+			markdown = `---\n${frontmatterYaml.value}\n---\n${markdown}`;
+		}
 		console.log({
 			tree,
 			after: markdown
 		})
+		console.timeEnd("process")
 		return markdown;
 	}
 
-	protected async removeFrontmatter(tree: Root): Promise<void> {
-		await transformAsync(tree, 'yaml', async (node: Node) => {
+	protected async removeFrontmatter(tree: Root): Promise<Yaml | null> {
+		let frontmatterYamlNode : Node | null = null;
+		await transformAsync(tree, 'yaml', async (node: Yaml) => {
+			frontmatterYamlNode = node;
 			return false;
 		})
+		return frontmatterYamlNode ? frontmatterYamlNode : null;
 	}
 	/**
 	 * obsidianの画像スタイルをmarpのスタイルに変換する
@@ -107,7 +117,7 @@ export class MarpMarkdownProcessor {
 		})
 	}
 
-	protected async convertWikiLinkToImage(tree: Root): Promise<void> {
+	protected async convertEmbedWikiLinkToImage(tree: Root): Promise<void> {
 		// ![[url(|alt)]]形式のノードを探して通常の画像ノードに変換する
 		await transformAsync(tree, 'text', async (node: Text) => {
 			const match = node.value.match(/^!\[\[(.*?)\]\]$/)
@@ -127,6 +137,56 @@ export class MarpMarkdownProcessor {
 			return null
 		})
 	}
+
+	protected async convertWikiLinkToLink(tree: Root): Promise<void> {
+		// [[url|text]]形式のノードを探して通常のリンクノードに変換する
+		await transformAsync(tree, 'text', async (node: Text) => {
+			const match = node.value.match(/\!*\[\[(.*?)\]\]$/)
+			if (match && !match[0].startsWith("!")) {
+				let text = match[1];
+				let url = text;
+				if (text && text.includes("|")) {
+					[url, text] = text.split("|");
+				}
+				const linkNode: Link = {
+					type: 'link',
+					url: url,
+					children: [{ type: 'text', value: text }]
+				}
+				return linkNode;
+			}
+			return null
+		})
+	}
+
+	protected async convertLinkToStyle(tree: Root,matcher: (node: Link) => boolean,sourcePath: string): Promise<void> {
+		await transformAsync(tree, 'link', async (node: Link) => {
+			if (matcher(node)) {
+				const filename = node.url;
+				const file = this.app.metadataCache.getFirstLinkpathDest(filename, sourcePath);
+				if(!file) return null;
+				const content = await this.app.vault.cachedRead(file)
+				// parse markdown
+				const tree = fromMarkdown(content, {
+					extensions: [frontmatter()],
+					mdastExtensions: [frontmatterFromMarkdown()]
+				});
+				// retrieve css code blocks
+				const css = this.pickupAllNode(tree, (node) => {
+					return node.type === "code" && (node as Code).lang === "css";
+				});
+				if(css.length > 0){
+					const style = css.map((node) => (node as Code).value).join("\n");
+					return {
+						type: 'html',
+						value: `<style>${style}</style>`
+					} as Html;
+				}
+			}
+			return null;
+		})
+	}
+
 	protected async convertImageToDataUrl(tree: Root, sourcePath: string): Promise<void> {
 		await transformAsync(tree, 'image', async (node: Image) => {
 			if (node.url.startsWith("data:")) {
@@ -221,6 +281,13 @@ export class MarpMarkdownProcessor {
 		let matched: Node | null = null;
 		visit(tree, matcher, (node) => {
 			matched = node;
+		});
+		return matched;
+	}
+	protected pickupAllNode(tree: Root, matcher: (node: Node) => boolean): Node[] {
+		const matched: Node[] = [];
+		visit(tree, matcher, (node) => {
+			matched.push(node);
 		});
 		return matched;
 	}

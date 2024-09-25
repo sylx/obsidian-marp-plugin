@@ -44,6 +44,7 @@ const context = await esbuild.context({
   outdir: '.',
   minify: prod,
   plugins: [sassPlugin()],
+  drop: prod ? ['console','debugger'] : [],
 });
 
 if (mode !== 'watch') {

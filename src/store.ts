@@ -64,16 +64,12 @@ const marpSlidePageNumberStateMap = map<Record<TFile["path"],MarpSlideState>>();
 
 export const subscribeMarpSlideState = (file: TFile,cb: (state:MarpSlideState) => void) => {
 	return subscribeKeys(marpSlidePageNumberStateMap,[file.path],(record) => {
-		console.log("occur",record);
 		const state = record[file.path];
-		if(state){
-			cb(state);
-		}
+		if(state) cb(state);
 	});
 }
 
 export const emitMarpSlideState = (file: TFile,state: MarpSlideState) => {
-	console.trace("emitMarpSlideState");
 	marpSlidePageNumberStateMap.setKey(file.path,state);
 }
 

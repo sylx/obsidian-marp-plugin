@@ -1,6 +1,5 @@
-import { atom, map, onMount } from "nanostores";
+import { atom, map, onMount, subscribeKeys } from "nanostores";
 import { TFile } from "obsidian";
-import { SyntaxNodeRef } from "@lezer/common";
 
 export type MarpSlidePageInfo = {
     page: number;
@@ -11,16 +10,14 @@ export type MarpSlidePageInfo = {
 	sourcePath: string;
 };
 
-export type MarpSlidePageNumberState = {
+export type MarpSlideState = {
 	page: number;
 	setBy: "preview" | "editor";
 };
 
 type MarpSlidePageInfoStore = ReturnType<typeof atom<MarpSlidePageInfo[]>>;
-type MarpSlideCurrentPage = ReturnType<typeof map<MarpSlidePageNumberState>>;
 
 const marpSlideInfoStoreMap = new Map<TFile, MarpSlidePageInfoStore>();
-const marpSlideCurrentPage = new Map<TFile, MarpSlideCurrentPage>();
 
 export const createOrGetMarpSlideInfoStore = (file: TFile) : MarpSlidePageInfoStore => {
     if(marpSlideInfoStoreMap.has(file)){
@@ -63,30 +60,24 @@ export const mergeMarpPageInfo =  (file: TFile,partialInfo: MarpSlidePageInfo[])
     store.set(newInfo);
 }
 
-export const createOrGetCurrentPageStore = (file: TFile) => {
-    if(marpSlideCurrentPage.has(file)){
-        return marpSlideCurrentPage.get(file)!;
-    }
-    const $page = map<MarpSlidePageNumberState>({page: 0,setBy: "preview"} );
-    onMount($page,()=>{
-        console.log("onMount page",file.path);
-        return () => {
-            console.log("onUnmount page",file.path);
-        }
-    })
-    marpSlideCurrentPage.set(file,$page);
-    return $page;
-}
+const marpSlidePageNumberStateMap = map<Record<TFile["path"],MarpSlideState>>();
 
-export const setCurrentPage = (file: TFile,page: number,setBy: MarpSlidePageNumberState["setBy"] = "editor") => {
-	console.log("setCurrentPage",file.path,page,setBy);
-    const $page = createOrGetCurrentPageStore(file);
-    $page.set({
-		page,
-		setBy
+export const subscribeMarpSlideState = (file: TFile,cb: (state:MarpSlideState) => void) => {
+	return subscribeKeys(marpSlidePageNumberStateMap,[file.path],(record) => {
+		console.log("occur",record);
+		const state = record[file.path];
+		if(state){
+			cb(state);
+		}
 	});
 }
-export const getCurrentPage = (file: TFile) => {
-    const $page = createOrGetCurrentPageStore(file);
-    return $page.get().page;
+
+export const emitMarpSlideState = (file: TFile,state: MarpSlideState) => {
+	console.trace("emitMarpSlideState");
+	marpSlidePageNumberStateMap.setKey(file.path,state);
+}
+
+export const getMarpSlideState = (file: TFile) => {
+	const r=marpSlidePageNumberStateMap.get()
+	return r[file.path];
 }

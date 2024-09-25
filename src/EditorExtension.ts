@@ -8,8 +8,7 @@ import {
 import { EditorState } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { App, EditorPosition, MarkdownView, Plugin, TFile, View } from "obsidian";
-import { mergeMarpPageInfo, setCurrentPage, setMarpPageInfo, MarpSlidePageInfo, createOrGetCurrentPageStore } from "./store";
-import { SyntaxNodeRef } from "@lezer/common";
+import { mergeMarpPageInfo, setMarpPageInfo, MarpSlidePageInfo, subscribeMarpSlideState, emitMarpSlideState } from "./store";
 
 export class EditorExtensionPluginValue implements PluginValue {
   decorations: DecorationSet | undefined;
@@ -32,12 +31,10 @@ export class EditorExtensionPluginValue implements PluginValue {
     
     //subscribe
     if(this.file){
-      const $page = createOrGetCurrentPageStore(this.file);
-      this.unsubscribe.push($page.subscribe(({page,setBy},oldVal)=>{
-		if(!oldVal) return;
-		if(setBy === "editor") return;
-        this.moveEditorCursor(view,page);
-      }));
+	  this.unsubscribe.push(subscribeMarpSlideState(this.file,state=>{
+		if(state.setBy === "editor") return;
+		this.moveEditorCursor(view,state.page);
+	  }));
     }
     //previewがあれば更新
     this.renderPreview(this.pageInfo,true);
@@ -50,7 +47,7 @@ export class EditorExtensionPluginValue implements PluginValue {
   }
   movePreviewCursor(page: number){
     if(!this.file) return;
-    setCurrentPage(this.file,page);
+    emitMarpSlideState(this.file,{page,setBy: "editor"});
   }
   moveEditorCursor(view: EditorView,page: number){
 	this.cursorMoving = true;
@@ -66,6 +63,7 @@ export class EditorExtensionPluginValue implements PluginValue {
 		line: 0
 	}
 	editor.setCursor(pos);
+	editor.scrollIntoView({from: pos,to: pos},true);
 	editor.focus();
 	this.cursorMoving = false;
   }

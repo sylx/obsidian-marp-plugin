@@ -1,11 +1,11 @@
 import {
-	FileSystemAdapter,
-	ItemView,
-	Notice,
-	TFile,
-	ViewStateResult,
-	Workspace,
-	WorkspaceLeaf
+  FileSystemAdapter,
+  ItemView,
+  Notice,
+  TFile,
+  ViewStateResult,
+  Workspace,
+  WorkspaceLeaf
 } from 'obsidian';
 import { exportSlide } from './export';
 import { marp } from './marp';
@@ -13,7 +13,7 @@ import { MarpPluginSettings } from './settings';
 import { join } from 'path';
 
 import morphdom from 'morphdom';
-import { createOrGetCurrentPageStore, createOrGetMarpSlideInfoStore, getMarpPageInfo, MarpSlidePageInfo, setCurrentPage } from './store';
+import { createOrGetMarpSlideInfoStore, emitMarpSlideState, getMarpPageInfo, MarpSlidePageInfo, subscribeMarpSlideState } from './store';
 import { MarpMarkdownProcessor } from './MarpMarkdownProcessor';
 import { MarpExporter } from './MarpExporter';
 import { ProgressBarComponent } from 'obsidian';
@@ -142,11 +142,10 @@ export class PreviewView extends ItemView implements PreviewViewState {
       const clicked = e.target as HTMLElement;
       //svgまで遡る
       const svg = clicked.closest('svg');
-      if(svg){
+      if(svg && this.file){
         const allSlides = this.bodyEl.querySelectorAll('.marpit > svg');
         const page = Array.from(allSlides).indexOf(svg);
-		    setCurrentPage(this.file!, page,"preview");
-		    //this.moveCursorToPage(page);
+		emitMarpSlideState(this.file,{page,setBy: "preview"});
       }
     })
     //this.registerEvent(this.app.workspace.on('editor-change', this.onEditorChange.bind(this)));
@@ -192,10 +191,9 @@ export class PreviewView extends ItemView implements PreviewViewState {
       this.register($content.subscribe((info) => {
         this.renderPreview(info);
       }))
-      const $page = createOrGetCurrentPageStore(state.file);
-      this.register($page.subscribe(({page,setBy}) => {
-		if(setBy === "preview") return;
-        this.moveCursorToPage(page);
+      this.register(subscribeMarpSlideState(state.file,(state) => {
+		if(state.setBy === "preview") return;
+        this.moveCursorToPage(state.page);
       }));
       
       this.file = state.file;

@@ -19,16 +19,19 @@ export class EditorExtensionPluginValue implements PluginValue {
   unsubscribe: any[] = [];
   globalMarkdownView: MarkdownView | null = null;
   cursorMoving: boolean = false;
+  view: EditorView;
   
   constructor(view: EditorView,plugin: Plugin) {
+	this.view=view;
 	this.plugin = plugin;
 	this.app = plugin.app;
+	if(!this.isEnable()) return;
     // ファイルを開いた時、別のファイルに移った時再生成される
-    //console.log('EditorExtensionPlugin instantiated',{view,app});
+    console.log('EditorExtensionPlugin instantiated',{view});
     this.pageInfo=this.createPageInfo(view.state);
     this.file = this.app.workspace.getActiveFile();
 	this.globalMarkdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-    
+
     //subscribe
     if(this.file){
 	  this.unsubscribe.push(subscribeMarpSlideState(this.file,state=>{
@@ -38,6 +41,11 @@ export class EditorExtensionPluginValue implements PluginValue {
     }
     //previewがあれば更新
     this.renderPreview(this.pageInfo,true);
+  }
+
+  protected isEnable(){
+	// parentが.cm-contentContainerかどうかで判定
+	return this.view.contentDOM.parentElement?.classList.contains("cm-contentContainer") ?? false;
   }
 
   // previewViewに対する通知
@@ -84,6 +92,7 @@ export class EditorExtensionPluginValue implements PluginValue {
 	return markdownView;
   }  
   update(update: ViewUpdate) {
+	if(!this.isEnable()) return;
 	if(this.cursorMoving) return;
     this.file = this.app.workspace.getActiveFile();
     if(update.docChanged){

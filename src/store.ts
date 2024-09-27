@@ -10,44 +10,31 @@ export type MarpSlidePageInfo = {
 	sourcePath: string;
 };
 
+export type MarpSlideContent = {
+	pageInfo: MarpSlidePageInfo[];
+	styleMd: TFile[];
+	css: string;
+	mermaidCommon: string;
+}
+
 export type MarpSlideState = {
 	page: number;
 	setBy: "preview" | "editor";
 };
 
-type MarpSlidePageInfoStore = ReturnType<typeof atom<MarpSlidePageInfo[]>>;
-
-const marpSlideInfoStoreMap = new Map<TFile, MarpSlidePageInfoStore>();
-
-export const createOrGetMarpSlideInfoStore = (file: TFile) : MarpSlidePageInfoStore => {
-    if(marpSlideInfoStoreMap.has(file)){
-        return marpSlideInfoStoreMap.get(file)!;
-    }
-    const $store : MarpSlidePageInfoStore = atom<MarpSlidePageInfo[]>([]);
-    onMount($store,()=>{
-        console.log("onMount",file.path);
-        return () => {
-            console.log("onUnmount",file.path);
-        }
-    })
-    marpSlideInfoStoreMap.set(file,$store);
-    return $store;
-}
-
 export const getMarpPageInfo = (file: TFile) => {
-	const store = createOrGetMarpSlideInfoStore(file);
-	return store.get();
+	return getMarpSlideContent(file)?.pageInfo ?? [];
 }
 
 export const setMarpPageInfo = (file: TFile,info: MarpSlidePageInfo[]) => {
-    const store = createOrGetMarpSlideInfoStore(file);
-    store.set(info.map(info=>({...info,isUpdate: true})));
+	const old = getMarpSlideContent(file) ?? {pageInfo: [],styleMd: [],css: "",mermaidCommon: ""};
+	emitMarpSlideContent(file,{...old,pageInfo: info.map(i=>({...i,isUpdate: true}))});
 }
 
 export const mergeMarpPageInfo =  (file: TFile,partialInfo: MarpSlidePageInfo[]) => {
-    const store = createOrGetMarpSlideInfoStore(file);
-    let addOffset = 0;
-    const newInfo = store.get().map(oldInfo => {
+	const pageInfo = getMarpSlideContent(file)?.pageInfo ?? [];
+	let addOffset = 0;
+    const newInfo = pageInfo.map(oldInfo => {
         const newPage = partialInfo.find(partial => partial.page === oldInfo.page)
         if(newPage){
             const current =  {...newPage,start: newPage.start + addOffset,end: newPage.end + addOffset,isUpdate: true};
@@ -57,7 +44,8 @@ export const mergeMarpPageInfo =  (file: TFile,partialInfo: MarpSlidePageInfo[])
             return {...oldInfo,start: oldInfo.start + addOffset,end: oldInfo.end + addOffset,isUpdate: false};
         }     
     })
-    store.set(newInfo);
+	const old = getMarpSlideContent(file) ?? {pageInfo: [],styleMd: [],css: "",mermaidCommon: ""};
+    emitMarpSlideContent(file,{...old,pageInfo: newInfo});
 }
 
 const marpSlideStateMap = map<Record<TFile["path"],MarpSlideState>>();
@@ -76,4 +64,22 @@ export const emitMarpSlideState = (file: TFile,state: MarpSlideState) => {
 export const getMarpSlideState = (file: TFile) => {
 	const r=marpSlideStateMap.get()
 	return r[file.path];
+}
+
+const marpSlideContentMap = map<Record<TFile["path"],MarpSlideContent>>();
+
+export const subscribeMarpSlideContent = (file: TFile,cb: (content:MarpSlideContent) => void) => {
+	return subscribeKeys(marpSlideContentMap,[file.path],(record) => {
+		const content = record[file.path];
+		if(content) cb(content);
+	});
+}
+
+export const emitMarpSlideContent = (file: TFile,value: any) => {
+	marpSlideContentMap.setKey(file.path,value);
+}
+
+export const getMarpSlideContent = (file: TFile) => {
+	const r=marpSlideContentMap.get()
+	return r[file.path] ?? null;
 }

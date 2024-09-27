@@ -123,14 +123,9 @@ export class PreviewView extends ItemView implements PreviewViewState {
 			this.downloadFile(buffer, this.file.basename + '.pdf', 'application/pdf');
 			setTimeout(() => this.progressBar.setValue(0), 5000);
 		});
-		this.addAction('image', 'Export as PPTX', () => {
+		this.addAction('refresh-cw', 'Refresh Preview', () => {
 			if (this.file) {
-				exportSlide(this.file, 'pptx', basePath, themeDir);
-			}
-		});
-		this.addAction('code-glyph', 'Export as HTML', () => {
-			if (this.file) {
-				exportSlide(this.file, 'html', basePath, themeDir);
+				this.renderPreview(getMarpPageInfo(this.file));
 			}
 		});
 	}

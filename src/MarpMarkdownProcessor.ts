@@ -125,11 +125,11 @@ export class MarpMarkdownProcessor {
 			if (match) {
 				let alt = "image"
 				let filename = match[1];
+				if (filename && filename.includes("|")) {
+					[filename, alt] = filename.split("|");
+				}				
 				// image mimetype
-				if(Mime.getType(filename)?.includes("image")){			
-					if (filename && filename.includes("|")) {
-						[filename, alt] = filename.split("|");
-					}
+				if(Mime.getType(filename)?.includes("image")){
 					const imageNode: Image = {
 						type: 'image',
 						url: filename,

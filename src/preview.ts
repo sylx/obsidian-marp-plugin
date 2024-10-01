@@ -136,6 +136,17 @@ export class PreviewView extends ItemView implements PreviewViewState {
 		this.registerEvent(this.app.workspace.on('file-open', this.onFileOpen.bind(this)));
 		this.registerDomEvent(this.containerEl, 'click', (e) => {
 			const clicked = e.target as HTMLElement;
+			if(clicked.tagName.toLocaleLowerCase() === "img"){
+				//download image
+				const src = clicked.getAttribute("src");
+				if(src){
+					const a = document.createElement('a');
+					a.href = src;
+					a.download = src.split('/').at(-1) ?? "image";
+					a.click();
+				}
+				return;
+			}
 			//svgまで遡る
 			const svg = clicked.closest('svg');
 			if (svg && this.file) {

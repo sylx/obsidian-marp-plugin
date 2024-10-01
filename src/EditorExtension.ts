@@ -104,12 +104,7 @@ export class EditorExtensionPluginValue implements PluginValue {
       }else if(pagesOrFalse.length > 0){
         this.renderPreview(pagesOrFalse);
       }
-      this.pageInfo = newPageInfo;
-
-	  this.view.contentDOM.querySelectorAll(".internal-embed.is-loaded").forEach((el)=>{
-		storeMarkdownEmbedCache(this.file!,el.getAttribute("src") ?? "",el.innerHTML);
-	  });
-	  
+      this.pageInfo = newPageInfo;  
     }else if(!update.focusChanged && !update.viewportChanged){
       // カーソル移動
       const selection = update.state.selection.main;
@@ -152,6 +147,9 @@ export class EditorExtensionPluginValue implements PluginValue {
 		sourcePath: this.file?.path ?? ""
       })
     }
+	this.view.contentDOM.querySelectorAll(".internal-embed.is-loaded").forEach((el)=>{
+		storeMarkdownEmbedCache(this.file!,el.getAttribute("src") ?? "",el.innerHTML);
+	});	
     return newPageInfo;
   }
   detectUpdatePages(pageInfo: MarpSlidePageInfo[]){

@@ -111,12 +111,8 @@ export async function convertHtml(html: string): Promise<Document> {
 }
 
 export async function convertMermaidToSvg(code: string): Promise<string> {
-	try {
-		const result=await mermaid.mermaidAPI.render('mermaid-svg', code);
-		return result.svg.replace(/<br>/g,'<br/>');
-	}catch(e){
-		new Notice(`Marp: Mermaid diagram rendering failed ${e}`, 2000);
-	}
+	const result=await mermaid.mermaidAPI.render('mermaid-svg', code);
+	return result.svg.replace(/<br>/g,'<br/>');
 	return '';
 }
 export async function convertMermaidToDataUrl(code: string): Promise<string> {

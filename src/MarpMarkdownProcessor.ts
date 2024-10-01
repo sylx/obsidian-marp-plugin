@@ -281,14 +281,20 @@ export class MarpMarkdownProcessor {
 		await transformAsync(tree, 'code', async (node: Code) => {
 			if (node.lang !== "mermaid") return null;
 			const code = node.value;
-			const dataurl = await convertMermaidToDataUrl(code);
-			if (!dataurl) return null;
-			const style = node.meta ? this.metaToStyle(node.meta) : "";
-			const htmlNode = {
-				type: 'html',
-				value: `<img src="${dataurl}" alt="mermaid" class="mermaid-image" ${style} />`
-			} as Node;
-			return htmlNode;
+			try {
+				const dataurl = await convertMermaidToDataUrl(code);
+				if (!dataurl) return null;
+				const style = node.meta ? this.metaToStyle(node.meta) : "";
+				return {
+					type: 'html',
+					value: `<img src="${dataurl}" alt="mermaid" class="mermaid-image" ${style} />`
+				} as Html;
+			} catch (e) {
+				return {
+					type: 'html',
+					value: `<pre class="mermaid-error">${e}</pre>`
+				} as Html;
+			}
 		});
 	}
 	protected pickupNode(tree: Root, matcher: (node: Node) => boolean): Node | null {

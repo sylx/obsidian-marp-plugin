@@ -1,5 +1,5 @@
-import { App } from "obsidian";
-import { MarpSlidePageInfo } from "./store";
+import { App, Component, MarkdownPreviewRenderer, MarkdownRenderer, Plugin, TFile } from "obsidian";
+import { getMarkdownEmbedCache, MarpSlidePageInfo } from "./store";
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { toMarkdown } from 'mdast-util-to-markdown';
 import { visit } from "unist-util-visit";
@@ -9,7 +9,7 @@ import { getFilePathByLinkPath, getResourcePathByFullPath } from "./tools";
 import { normalize } from "path";
 import { frontmatterFromMarkdown } from "mdast-util-frontmatter";
 import { frontmatter } from 'micromark-extension-frontmatter';
-
+import Mime from 'mime';
 
 type ReplaceAction = { parent: Parent, index: number, node: Node | null };
 type ReplaceActionPromise = Promise<ReplaceAction | null>;
@@ -50,7 +50,8 @@ const transformAsync = async (root: Node, type: string, transformer: (node: Node
 
 export class MarpMarkdownProcessor {
 	constructor(
-		protected readonly app: App
+		protected readonly app: App,
+		protected readonly parentComponent: Component
 	) {
 	}
 
@@ -66,7 +67,7 @@ export class MarpMarkdownProcessor {
 		await this.convertLinkToStyle(tree,(node) => {
 			return node.url.endsWith(".css");
 		},pageInfo.sourcePath);
-		await this.convertEmbedWikiLinkToImage(tree);
+		await this.convertEmbedWikiLinkToImage(tree,pageInfo.sourcePath);
 		await this.convertImageStyle(tree);
 		if (isPreview) {
 			await this.convertImageToResourcePath(tree, pageInfo.sourcePath);
@@ -117,22 +118,37 @@ export class MarpMarkdownProcessor {
 		})
 	}
 
-	protected async convertEmbedWikiLinkToImage(tree: Root): Promise<void> {
+	protected async convertEmbedWikiLinkToImage(tree: Root,sourcePath: string): Promise<void> {
 		// ![[url(|alt)]]形式のノードを探して通常の画像ノードに変換する
 		await transformAsync(tree, 'text', async (node: Text) => {
 			const match = node.value.match(/^!\[\[(.*?)\]\]$/)
 			if (match) {
 				let alt = "image"
 				let filename = match[1];
-				if (filename && filename.includes("|")) {
-					[filename, alt] = filename.split("|");
+				// image mimetype
+				if(Mime.getType(filename)?.includes("image")){			
+					if (filename && filename.includes("|")) {
+						[filename, alt] = filename.split("|");
+					}
+					const imageNode: Image = {
+						type: 'image',
+						url: filename,
+						alt: alt,
+					}
+					return imageNode;
+				}else{
+					const file = {
+						path: sourcePath
+					} as TFile; // workaround
+					const embedCache = getMarkdownEmbedCache(file, filename);
+					if(embedCache){
+						return {
+							type: 'html',
+							value: embedCache
+						} as Html;
+					}
 				}
-				const imageNode: Image = {
-					type: 'image',
-					url: filename,
-					alt: alt,
-				}
-				return imageNode;
+
 			}
 			return null
 		})

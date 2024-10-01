@@ -8,7 +8,7 @@ import {
 import { EditorState } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { App, EditorPosition, MarkdownView, Plugin, TFile, View } from "obsidian";
-import { mergeMarpPageInfo, setMarpPageInfo, MarpSlidePageInfo, subscribeMarpSlideState, emitMarpSlideState } from "./store";
+import { mergeMarpPageInfo, setMarpPageInfo, MarpSlidePageInfo, subscribeMarpSlideState, emitMarpSlideState, storeMarkdownEmbedCache } from "./store";
 
 export class EditorExtensionPluginValue implements PluginValue {
   decorations: DecorationSet | undefined;
@@ -105,6 +105,11 @@ export class EditorExtensionPluginValue implements PluginValue {
         this.renderPreview(pagesOrFalse);
       }
       this.pageInfo = newPageInfo;
+
+	  this.view.contentDOM.querySelectorAll(".internal-embed.is-loaded").forEach((el)=>{
+		storeMarkdownEmbedCache(this.file!,el.getAttribute("src") ?? "",el.innerHTML);
+	  });
+	  
     }else if(!update.focusChanged && !update.viewportChanged){
       // カーソル移動
       const selection = update.state.selection.main;

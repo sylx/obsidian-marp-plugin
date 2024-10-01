@@ -83,3 +83,13 @@ export const getMarpSlideContent = (file: TFile) => {
 	const r=marpSlideContentMap.get()
 	return r[file.path] ?? null;
 }
+
+const markdownEmbedCache = map<Record<TFile["path"],Record<string,string>>>();
+
+export const storeMarkdownEmbedCache = (file: TFile,source: string,html: string) => {
+	markdownEmbedCache.get()[file.path] = {...(markdownEmbedCache.get()[file.path] ?? {}),[source]: html};
+	console.log("update cache",file.path,markdownEmbedCache.get()[file.path]);
+}
+export const getMarkdownEmbedCache = (file: TFile,source: string) => {
+	return markdownEmbedCache.get()[file.path]?.[source];
+}

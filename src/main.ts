@@ -46,7 +46,7 @@ export default class MarpPlugin extends Plugin {
 		id: 'marp-test',
 		name: 'Marp: Test',
 		editorCallback: async (editor, ctx) => {
-			editor.setCursor({ line: 0, ch: 0 });
+			console.log(editor)
 		}
 	})
     this.registerView(

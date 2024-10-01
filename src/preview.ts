@@ -1,6 +1,7 @@
 import {
   FileSystemAdapter,
   ItemView,
+  MarkdownRenderer,
   Notice,
   TFile,
   ViewStateResult,
@@ -55,7 +56,7 @@ export class PreviewView extends ItemView implements PreviewViewState {
 		this.bodyEl = this.contentEl.createDiv('preview-body').createDiv();
 		this.styleEl = this.contentEl.createEl('style');
 
-		this.processor = new MarpMarkdownProcessor(this.app);
+		this.processor = new MarpMarkdownProcessor(this.app,this);
 		this.exporter = new MarpExporter(this.app);
 		this.progressBar = new ProgressBarComponent(this.progressBarEl);
 		this.progressBar.setValue(0);

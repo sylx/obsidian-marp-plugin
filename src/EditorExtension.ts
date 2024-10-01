@@ -28,15 +28,32 @@ export class EditorExtensionPluginValue implements PluginValue {
 	if(!this.isEnable()) return;
     // ファイルを開いた時、別のファイルに移った時再生成される
     console.log('EditorExtensionPlugin instantiated',{view,viewState: view.state,file: this.app.workspace.getActiveFile()});
+
+	//起動直後だとactiveFileがnullになるのでその場合は遅延で再取得
 	this.file = this.app.workspace.getActiveFile();
-    this.pageInfo=this.createPageInfo(view.state);
+	if(!this.file){
+		setTimeout(()=>{
+			this.file = this.app.workspace.getActiveFile();
+			if(!this.file){
+				console.error("file is null");
+				return;
+			}
+			this.init();
+		},500);
+	}else{
+		this.init();
+	}
+  }
+
+  protected init(){
+    this.pageInfo=this.createPageInfo(this.view.state);
 	this.globalMarkdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
 
     //subscribe
     if(this.file){
 	  this.unsubscribe.push(subscribeMarpSlideState(this.file,state=>{
 		if(state.setBy === "editor") return;
-		this.moveEditorCursor(view,state.page);
+		this.moveEditorCursor(this.view,state.page);
 	  }));
     }
     //previewがあれば更新

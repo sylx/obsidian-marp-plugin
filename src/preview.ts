@@ -1,14 +1,11 @@
 import {
-  FileSystemAdapter,
-  ItemView,
-  MarkdownRenderer,
-  Notice,
-  TFile,
-  ViewStateResult,
-  Workspace,
-  WorkspaceLeaf
+	FileSystemAdapter,
+	ItemView, Notice,
+	TFile,
+	ViewStateResult,
+	Workspace,
+	WorkspaceLeaf
 } from 'obsidian';
-import { exportSlide } from './export';
 import { marp } from './marp';
 import { MarpPluginSettings } from './settings';
 import { join } from 'path';

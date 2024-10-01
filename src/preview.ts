@@ -131,6 +131,40 @@ export class PreviewView extends ItemView implements PreviewViewState {
 		});
 	}
 
+	protected downloadImage(src: string) {
+		//ファイル名を決定
+		const getFilename = (src: string) => {
+			if(src.startsWith("data:")){
+				const mime = src.match(/^data:(image\/.+?);/)
+				if(!mime || mime.length < 1) return "image";
+				switch(mime[1]){
+					case "image/png":
+						return "image.png";
+					case "image/jpeg":
+					case "image/jpg":
+						return "image.jpg";
+					case "image/svg+xml":
+					case "image/svg":
+						return "image.svg";
+					case "image/gif":
+						return "image.gif";
+					default:
+						const ext=mime[1].split("/").at(-1);
+						return `image.${ext}`;
+				}
+			}else{
+				return (src.split('/').at(-1) ?? "image").replace(/\?.*$/,"");
+			}
+		}
+		fetch(src).then(res => res.blob()).then(blob => {
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = getFilename(src);
+			a.click();
+		});
+	}
+
 	async onOpen() {
 		//this.registerEvent(this.app.vault.on('modify', this.onChange.bind(this)));
 		this.registerEvent(this.app.workspace.on('file-open', this.onFileOpen.bind(this)));
@@ -138,12 +172,10 @@ export class PreviewView extends ItemView implements PreviewViewState {
 			const clicked = e.target as HTMLElement;
 			if(clicked.tagName.toLocaleLowerCase() === "img"){
 				//download image
-				const src = clicked.getAttribute("src");
+				const src = clicked.getAttribute("src");				
 				if(src){
-					const a = document.createElement('a');
-					a.href = src;
-					a.download = src.split('/').at(-1) ?? "image";
-					a.click();
+					e.preventDefault();					
+					this.downloadImage(src);
 				}
 				return;
 			}

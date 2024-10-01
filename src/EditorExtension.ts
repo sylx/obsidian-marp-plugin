@@ -27,9 +27,9 @@ export class EditorExtensionPluginValue implements PluginValue {
 	this.app = plugin.app;
 	if(!this.isEnable()) return;
     // ファイルを開いた時、別のファイルに移った時再生成される
-    console.log('EditorExtensionPlugin instantiated',{view});
+    console.log('EditorExtensionPlugin instantiated',{view,viewState: view.state,file: this.app.workspace.getActiveFile()});
+	this.file = this.app.workspace.getActiveFile();
     this.pageInfo=this.createPageInfo(view.state);
-    this.file = this.app.workspace.getActiveFile();
 	this.globalMarkdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
 
     //subscribe
@@ -147,9 +147,11 @@ export class EditorExtensionPluginValue implements PluginValue {
 		sourcePath: this.file?.path ?? ""
       })
     }
-	this.view.contentDOM.querySelectorAll(".internal-embed.is-loaded").forEach((el)=>{
-		storeMarkdownEmbedCache(this.file!,el.getAttribute("src") ?? "",el.innerHTML);
-	});	
+	if(this.file){
+		this.view.contentDOM.querySelectorAll(".internal-embed.is-loaded").forEach((el)=>{
+			storeMarkdownEmbedCache(this.file!,el.getAttribute("src") ?? "",el.innerHTML);
+		});
+	}
     return newPageInfo;
   }
   detectUpdatePages(pageInfo: MarpSlidePageInfo[]){

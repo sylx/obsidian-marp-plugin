@@ -60,7 +60,6 @@ export class MarpMarkdownProcessor {
 			extensions: [frontmatter()],
 			mdastExtensions: [frontmatterFromMarkdown()]
 		});
-		console.time("process")
 		console.log({"before": pageInfo.content, "tree": JSON.parse(JSON.stringify(tree))})
 		const frontmatterYaml = pageInfo.page === 0 ? await this.removeFrontmatter(tree) : null;
 		await this.convertWikiLinkToLink(tree);
@@ -84,7 +83,6 @@ export class MarpMarkdownProcessor {
 			tree,
 			after: markdown
 		})
-		console.timeEnd("process")
 		return markdown;
 	}
 
